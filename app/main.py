@@ -11,7 +11,7 @@ from app.telegram_bot import start_telegram_bot
 
 import dateparser
 import asyncio
-
+import os
 
 app = FastAPI()
 
@@ -126,5 +126,6 @@ async def start_services():
     print("Starting Scheduler...")
     start_scheduler()
 
-    print("Starting Telegram Bot...")
-    asyncio.create_task(start_telegram_bot())
+    if os.getenv("RENDER"):
+        print("Starting Telegram Bot...")
+        asyncio.create_task(start_telegram_bot())
