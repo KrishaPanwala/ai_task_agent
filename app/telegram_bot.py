@@ -47,9 +47,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def start_telegram_bot():
 
-    app = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
+    application = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
 
-    app.add_handler(
+    application.add_handler(
         MessageHandler(
             filters.TEXT & ~filters.COMMAND,
             handle_message
@@ -58,10 +58,13 @@ async def start_telegram_bot():
 
     print("Telegram bot running...")
 
+    print("Telegram bot running...")
+
     '''await app.initialize()
     await app.start()
     await app.updater.start_polling()'''
 
-    await app.initialize()
-    await app.start()
-    await app.updater.start_polling()
+    await application.initialize()
+    await application.start()
+    await application.bot.delete_webhook(drop_pending_updates=True)
+    await application.run_polling()
