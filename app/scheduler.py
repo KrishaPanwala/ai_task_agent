@@ -20,7 +20,7 @@ def check_tasks():
         if task.time <= now:
 
             send_telegram_message(
-                f"🔔 Reminder\nTask: {task.task}\nTime: {task.time.strftime('%I:%M %p')}"
+                f"🔔 Reminder\n{task.task}"
             )
 
             db.delete(task)

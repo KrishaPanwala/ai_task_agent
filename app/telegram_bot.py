@@ -38,11 +38,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         db.close()
 
         await update.message.reply_text(
-            f"✅ Task scheduled\n\nTask: {result['task']}\nTime: {parsed_time.strftime('%I:%M %p')}"
+            f"✅ Task scheduled\n{result['task']}"
         )
-
-    else:
-        await update.message.reply_text("❌ Could not understand task")
 
 
 async def start_telegram_bot():
@@ -56,12 +53,9 @@ async def start_telegram_bot():
         )
     )
 
-    print("Telegram bot running...")
-
     await application.initialize()
     await application.start()
 
-    # remove webhook and old sessions
     await application.bot.delete_webhook(drop_pending_updates=True)
 
     await application.updater.start_polling()
