@@ -58,6 +58,10 @@ async def start_telegram_bot():
 
     print("Telegram bot running...")
 
+    '''await app.initialize()
+    await app.start()
+    await app.updater.start_polling()'''
+
     await app.initialize()
     await app.start()
     await app.updater.start_polling()
