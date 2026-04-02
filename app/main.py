@@ -35,8 +35,8 @@ app.mount(
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
     return templates.TemplateResponse(
-        name="index.html",
-        context={"request": request}
+        "index.html",
+        {"request": request}
     )
 
 
