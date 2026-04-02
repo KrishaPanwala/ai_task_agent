@@ -67,4 +67,4 @@ async def start_telegram_bot():
     await application.initialize()
     await application.start()
     await application.bot.delete_webhook(drop_pending_updates=True)
-    await application.run_polling()
+    await application.updater.start_polling()
