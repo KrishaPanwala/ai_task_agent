@@ -133,5 +133,9 @@ async def start_services():
     start_scheduler()
 
     if os.getenv("RENDER"):
+
         print("Starting Telegram Bot...")
-        asyncio.create_task(start_telegram_bot())
+
+        asyncio.get_event_loop().create_task(
+            start_telegram_bot()
+        )

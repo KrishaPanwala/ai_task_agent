@@ -58,13 +58,10 @@ async def start_telegram_bot():
 
     print("Telegram bot running...")
 
-    print("Telegram bot running...")
-
-    '''await app.initialize()
-    await app.start()
-    await app.updater.start_polling()'''
-
     await application.initialize()
     await application.start()
+
+    # remove webhook and old sessions
     await application.bot.delete_webhook(drop_pending_updates=True)
+
     await application.updater.start_polling()
