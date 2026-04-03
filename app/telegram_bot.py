@@ -15,31 +15,27 @@ from app.config import TELEGRAM_BOT_TOKEN
 import dateparser
 
 
-# -----------------------------
-# /start command
-# -----------------------------
+# -------------------
+# start command
+# -------------------
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(
-        "🤖 AI Task Bot\n\n"
-        "Send message like:\n"
-        "remind me tomorrow 7pm to study"
+        "🤖 AI Task Bot\n\nSend reminder like:\nremind me tomorrow 7pm to study"
     )
 
 
-# -----------------------------
-# handle user message
-# -----------------------------
+# -------------------
+# handle message
+# -------------------
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
-    user_message = update.message.text
+    text = update.message.text
 
-    result = extract_task(user_message)
+    result = extract_task(text)
 
     if "task" not in result or "time" not in result:
-        await update.message.reply_text(
-            "❌ Could not understand task"
-        )
+        await update.message.reply_text("❌ Could not understand task")
         return
 
     parsed_time = dateparser.parse(
@@ -48,9 +44,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
     if not parsed_time:
-        await update.message.reply_text(
-            "❌ Invalid time"
-        )
+        await update.message.reply_text("❌ Invalid time")
         return
 
     db = SessionLocal()
@@ -65,15 +59,13 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     db.close()
 
     await update.message.reply_text(
-        f"✅ Task Added\n\n"
-        f"{result['task']}\n"
-        f"⏰ {parsed_time}"
+        f"✅ Task Added\n{result['task']}\n⏰ {parsed_time}"
     )
 
 
-# -----------------------------
+# -------------------
 # start telegram bot
-# -----------------------------
+# -------------------
 async def start_telegram_bot():
 
     app = ApplicationBuilder().token(
@@ -88,6 +80,10 @@ async def start_telegram_bot():
         )
     )
 
-    print("🤖 Telegram bot started")
+    print("🤖 Telegram bot starting...")
 
-    await app.run_polling()
+    await app.initialize()
+    await app.start()
+    await app.bot.initialize()
+
+    print("🤖 Telegram bot started successfully")

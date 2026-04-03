@@ -158,18 +158,11 @@ async def delete_task(task_id: int):
 @app.on_event("startup")
 async def start_services():
 
-    try:
-        # create database
-        Base.metadata.create_all(bind=engine)
+    Base.metadata.create_all(bind=engine)
 
-        # start scheduler
-        start_scheduler()
+    start_scheduler()
 
-        # start telegram bot
-        if os.getenv("TELEGRAM_BOT_TOKEN"):
-            asyncio.create_task(start_telegram_bot())
+    if os.getenv("TELEGRAM_BOT_TOKEN"):
+        asyncio.create_task(start_telegram_bot())
 
-        print("✅ Services started successfully")
-
-    except Exception as e:
-        print("❌ Startup error:", e)
+    print("✅ Services started successfully")
