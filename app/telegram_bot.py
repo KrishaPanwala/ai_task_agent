@@ -12,6 +12,8 @@ from app.db import SessionLocal
 from app.models import Task
 from app.config import TELEGRAM_BOT_TOKEN
 
+from datetime import timezone
+
 import dateparser
 
 
@@ -39,9 +41,14 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     parsed_time = dateparser.parse(
-        result["time"],
-        settings={"PREFER_DATES_FROM": "future"}
-    )
+    result["time"],
+    settings={
+        "PREFER_DATES_FROM": "future",
+        "RETURN_AS_TIMEZONE_AWARE": True
+    }
+)
+
+    parsed_time = parsed_time.astimezone(timezone.utc)
 
     if not parsed_time:
         await update.message.reply_text("❌ Invalid time")

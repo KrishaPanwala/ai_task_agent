@@ -1,39 +1,45 @@
 from apscheduler.schedulers.background import BackgroundScheduler
-from app.telegram import send_telegram_message
-from app.db import SessionLocal
-from app.models import Task
 from datetime import datetime, timezone
 
-scheduler = BackgroundScheduler()
+from app.db import SessionLocal
+from app.models import Task
+from app.telegram_sender import send_telegram_message
 
 
 def check_tasks():
 
     db = SessionLocal()
 
-    try:
-        tasks = db.query(Task).all()
-        now = datetime.now(timezone.utc)
+    tasks = db.query(Task).all()
 
-        for task in tasks:
+    now = datetime.now(timezone.utc)
 
-            if task.time <= now:
+    for task in tasks:
 
-                send_telegram_message(
-                    f"🔔 Reminder\n{task.task}"
-                )
+        if task.time is None:
+            continue
 
-                db.delete(task)
-                db.commit()
+        task_time = task.time
 
-    finally:
-        db.close()
+        # convert to UTC if naive
+        if task_time.tzinfo is None:
+            task_time = task_time.replace(tzinfo=timezone.utc)
+
+        if task_time <= now:
+
+            send_telegram_message(
+                f"⏰ Reminder\n{task.task}"
+            )
+
+            db.delete(task)
+            db.commit()
+
+    db.close()
 
 
 def start_scheduler():
 
-    if scheduler.running:
-        return
+    scheduler = BackgroundScheduler()
 
     scheduler.add_job(
         check_tasks,
@@ -42,3 +48,5 @@ def start_scheduler():
     )
 
     scheduler.start()
+
+    print("📅 Scheduler started")
