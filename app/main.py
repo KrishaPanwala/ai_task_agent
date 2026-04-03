@@ -13,8 +13,6 @@ import os
 
 app = FastAPI()
 
-Base.metadata.create_all(bind=engine)
-
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 templates = Jinja2Templates(
@@ -30,7 +28,6 @@ app.mount(
 
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
-
     return templates.TemplateResponse(
         "index.html",
         {"request": request}
@@ -40,7 +37,14 @@ async def home(request: Request):
 @app.on_event("startup")
 async def start_services():
 
-    start_scheduler()
+    try:
+        Base.metadata.create_all(bind=engine)
+        start_scheduler()
 
-    if os.getenv("RENDER"):
-        asyncio.create_task(start_telegram_bot())
+        if os.getenv("TELEGRAM_BOT_TOKEN"):
+            asyncio.create_task(start_telegram_bot())
+
+        print("Services started successfully")
+
+    except Exception as e:
+        print("Startup error:", e)

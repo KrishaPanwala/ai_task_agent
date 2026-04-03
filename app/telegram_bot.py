@@ -7,6 +7,7 @@ from app.models import Task
 from app.config import TELEGRAM_BOT_TOKEN
 
 import dateparser
+import asyncio
 
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -44,7 +45,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def start_telegram_bot():
 
-    application = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
+    application = ApplicationBuilder().token(
+        TELEGRAM_BOT_TOKEN
+    ).build()
 
     application.add_handler(
         MessageHandler(
@@ -56,6 +59,9 @@ async def start_telegram_bot():
     await application.initialize()
     await application.start()
 
-    await application.bot.delete_webhook(drop_pending_updates=True)
+    await application.bot.delete_webhook(
+        drop_pending_updates=True
+    )
 
-    await application.updater.start_polling()
+    while True:
+        await asyncio.sleep(3600)

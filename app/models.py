@@ -9,5 +9,5 @@ class Task(Base):
     __tablename__ = "tasks"
 
     id = Column(Integer, primary_key=True, index=True)
-    task = Column(String)
-    time = Column(DateTime)
+    task = Column(String, nullable=False)
+    time = Column(DateTime(timezone=True), nullable=False)
