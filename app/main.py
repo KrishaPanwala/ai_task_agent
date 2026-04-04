@@ -96,7 +96,8 @@ async def extract(message: str = Query(...)):
 
     new_task = Task(
         task=result["task"],
-        time=parsed_time
+        time=parsed_time,
+        chat_id=os.getenv("TELEGRAM_CHAT_ID")
     )
 
     db.add(new_task)

@@ -16,6 +16,7 @@ import dateparser
 from datetime import timezone
 import asyncio
 
+
 # -------------------------
 # START COMMAND
 # -------------------------
@@ -34,6 +35,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     user_message = update.message.text
+    chat_id = update.message.chat_id
 
     print("📩 Telegram message:", user_message)
 
@@ -41,29 +43,58 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     print("🧠 AI result:", result)
 
-    if not result:
+    if "task" not in result or "time" not in result:
         await update.message.reply_text(
             "❌ Could not understand task"
         )
         return
 
-    if "task" not in result or "time" not in result:
+    parsed_time = dateparser.parse(
+        result["time"],
+        settings={
+            "PREFER_DATES_FROM": "future",
+            "RETURN_AS_TIMEZONE_AWARE": True
+        }
+    )
+
+    if not parsed_time:
         await update.message.reply_text(
-            "❌ Could not extract task/time"
+            "❌ Invalid time"
         )
         return
+
+    parsed_time = parsed_time.astimezone(timezone.utc)
+
+    db = SessionLocal()
+
+    new_task = Task(
+        task=result["task"],
+        time=parsed_time,
+        chat_id=str(chat_id)
+    )
+
+    db.add(new_task)
+    db.commit()
+    db.close()
+
+    await update.message.reply_text(
+        f"✅ Task Added\n\n"
+        f"{result['task']}\n"
+        f"⏰ {parsed_time}"
+    )
+
 
 # -------------------------
 # START TELEGRAM BOT
 # -------------------------
 async def start_telegram_bot():
 
-    app = ApplicationBuilder().token(
+    application = ApplicationBuilder().token(
         TELEGRAM_BOT_TOKEN
     ).build()
 
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(
         MessageHandler(
             filters.TEXT & ~filters.COMMAND,
             handle_message
@@ -72,13 +103,8 @@ async def start_telegram_bot():
 
     print("🤖 Telegram bot starting...")
 
-    await app.initialize()
-    await app.start()
-
-    await app.bot.initialize()
-
-    await app.updater.start_polling()
+    await application.initialize()
+    await application.start()
+    await application.updater.start_polling()
 
     print("🤖 Telegram bot started successfully")
-
-    

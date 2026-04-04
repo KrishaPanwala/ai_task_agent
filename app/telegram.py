@@ -1,14 +1,23 @@
 import requests
-from app.config import TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID
+import os
+
+TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 
 
-def send_telegram_message(message):
+def send_telegram_message(message, chat_id):
 
-    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+    if not TOKEN or not chat_id:
+        print("Telegram token or chat_id missing")
+        return
+
+    url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
 
     data = {
-        "chat_id": TELEGRAM_CHAT_ID,
+        "chat_id": chat_id,
         "text": message
     }
 
-    requests.post(url, data=data)
+    try:
+        requests.post(url, data=data)
+    except Exception as e:
+        print("Telegram send error:", e)
