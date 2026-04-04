@@ -168,7 +168,6 @@ async def start_services():
     Base.metadata.create_all(bind=engine)
 
     start_scheduler()
-    start_telegram_bot()
 
     if os.getenv("TELEGRAM_BOT_TOKEN"):
         asyncio.create_task(start_telegram_bot())
