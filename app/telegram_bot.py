@@ -14,7 +14,7 @@ from app.config import TELEGRAM_BOT_TOKEN
 
 import dateparser
 from datetime import timezone
-
+import asyncio
 
 # -------------------------
 # START COMMAND
@@ -72,4 +72,15 @@ async def start_telegram_bot():
 
     print("🤖 Telegram bot starting...")
 
-    await app.run_polling()
+    await app.initialize()
+    await app.start()
+
+    await app.bot.initialize()
+
+    await app.updater.start_polling()
+
+    print("🤖 Telegram bot started successfully")
+
+    # keep running
+    while True:
+        await asyncio.sleep(3600)
