@@ -64,6 +64,7 @@ async def home(request: Request):
     )
 
 @app.get("/health")
+@app.head("/health")
 async def health():
     return {"status": "running"}   
 

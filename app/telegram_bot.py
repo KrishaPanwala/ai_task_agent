@@ -81,6 +81,4 @@ async def start_telegram_bot():
 
     print("🤖 Telegram bot started successfully")
 
-    # keep running
-    while True:
-        await asyncio.sleep(3600)
+    
