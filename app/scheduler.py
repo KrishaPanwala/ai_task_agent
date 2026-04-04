@@ -13,34 +13,42 @@ def check_tasks():
 
     while True:
 
-        db = SessionLocal()
+        try:
+            db = SessionLocal()
 
-        tasks = db.query(Task).all()
+            tasks = db.query(Task).all()
 
-        now = datetime.now(timezone.utc)
+            now = datetime.now(timezone.utc)
 
-        for task in tasks:
+            for task in tasks:
 
-            task_time = task.time
+                task_time = task.time
 
-            if task_time.tzinfo is None:
-                task_time = task_time.replace(tzinfo=timezone.utc)
+                if task_time.tzinfo is None:
+                    task_time = task_time.replace(tzinfo=timezone.utc)
 
-            diff = (task_time - now).total_seconds()
+                diff = (task_time - now).total_seconds()
 
-            if 0 <= diff <= 30:
+                print(f"🕒 Task: {task.task} | Time left: {diff}")
 
-                print("🔔 Sending reminder:", task.task)
+                if 0 <= diff <= 30:
 
-                send_telegram_message(
-                    f"🔔 Reminder\n\n{task.task}",
-                    task.chat_id
-                )
+                    print("🔔 Sending reminder:", task.task)
 
-                db.delete(task)
-                db.commit()
+                    send_telegram_message(
+                        f"🔔 Reminder\n\n{task.task}",
+                        task.chat_id
+                    )
 
-        db.close()
+                    db.delete(task)
+                    db.commit()
+
+                    print("✅ Task completed and deleted")
+
+            db.close()
+
+        except Exception as e:
+            print("❌ Scheduler error:", e)
 
         time.sleep(10)
 
@@ -53,3 +61,5 @@ def start_scheduler():
     )
 
     thread.start()
+
+    print("✅ Scheduler thread started")
