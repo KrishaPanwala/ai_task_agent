@@ -41,45 +41,17 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     print("🧠 AI result:", result)
 
-    if "task" not in result or "time" not in result:
+    if not result:
         await update.message.reply_text(
             "❌ Could not understand task"
         )
         return
 
-    parsed_time = dateparser.parse(
-        result["time"],
-        settings={
-            "PREFER_DATES_FROM": "future",
-            "RETURN_AS_TIMEZONE_AWARE": True
-        }
-    )
-
-    if not parsed_time:
+    if "task" not in result or "time" not in result:
         await update.message.reply_text(
-            "❌ Invalid time"
+            "❌ Could not extract task/time"
         )
         return
-
-    parsed_time = parsed_time.astimezone(timezone.utc)
-
-    db = SessionLocal()
-
-    new_task = Task(
-        task=result["task"],
-        time=parsed_time
-    )
-
-    db.add(new_task)
-    db.commit()
-    db.close()
-
-    await update.message.reply_text(
-        f"✅ Task Added\n\n"
-        f"{result['task']}\n"
-        f"⏰ {parsed_time}"
-    )
-
 
 # -------------------------
 # START TELEGRAM BOT
