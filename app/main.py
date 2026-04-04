@@ -63,6 +63,11 @@ async def home(request: Request):
     )
 
 
+@app.get("/health")
+async def health():
+    return {"status": "running"}    
+
+
 # -----------------------------
 # Extract Task API
 # -----------------------------
