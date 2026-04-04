@@ -100,7 +100,4 @@ async def start_telegram_bot():
 
     print("🤖 Telegram bot starting...")
 
-    await app.initialize()
-    await app.start()
-
-    print("🤖 Telegram bot started successfully")
+    await app.run_polling()
