@@ -35,3 +35,5 @@ async def handle_message(update, context):
 
 application.add_handler(CommandHandler("start", start))
 application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+
+# ✅ NO run_polling() here — that was the bug

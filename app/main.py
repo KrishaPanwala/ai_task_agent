@@ -36,7 +36,7 @@ async def home(request: Request):
 async def health():
     return {"status": "running"}
 
-# ✅ Webhook endpoint — Telegram will POST updates here
+# ✅ Telegram webhook endpoint
 @app.post("/webhook/{token}")
 async def telegram_webhook(token: str, request: Request):
     bot_token = os.getenv("TELEGRAM_BOT_TOKEN")
@@ -92,7 +92,7 @@ async def start_services():
     asyncio.create_task(start_telegram_bot_background())
     print("✅ Services started successfully")
 
-# ✅ Graceful shutdown — stops bot cleanly before Render kills the process
+# ✅ Graceful shutdown
 @app.on_event("shutdown")
 async def shutdown_services():
     try:
