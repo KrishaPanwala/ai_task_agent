@@ -52,7 +52,12 @@ async def extract(message: str = Query(...)):
     result = extract_task(message)
     if "task" not in result or "time" not in result:
         return JSONResponse({"error": "could not extract"})
-    parsed_time = dateparser.parse(result["time"], settings={"PREFER_DATES_FROM": "future"})
+    parsed_time = dateparser.parse(result["time"], settings={
+    "PREFER_DATES_FROM": "future",
+    "RETURN_AS_TIMEZONE_AWARE": True,
+    "TIMEZONE": "Asia/Kolkata",
+    "TO_TIMEZONE": "Asia/Kolkata"
+})
     if not parsed_time:
         return JSONResponse({"error": "invalid time"})
     db = SessionLocal()

@@ -20,7 +20,12 @@ async def handle_message(update, context):
         await update.message.reply_text("❌ Could not understand task")
         return
 
-    parsed_time = dateparser.parse(result["time"], settings={"PREFER_DATES_FROM": "future", "RETURN_AS_TIMEZONE_AWARE": True})
+    parsed_time = dateparser.parse(result["time"], settings={
+    "PREFER_DATES_FROM": "future",
+    "RETURN_AS_TIMEZONE_AWARE": True,
+    "TIMEZONE": "Asia/Kolkata",
+    "TO_TIMEZONE": "Asia/Kolkata"
+})
     if not parsed_time:
         await update.message.reply_text("❌ Invalid time")
         return
