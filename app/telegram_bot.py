@@ -106,12 +106,9 @@ async def start_telegram_bot():
         drop_pending_updates=True
     )
 
-    await application.run_polling()
-
-    print("🤖 Telegram bot starting...")
-
-    await application.initialize()
     await application.start()
-    await application.updater.start_polling()
+
+    # ✅ Correct polling for async apps
+    asyncio.create_task(application._run_polling())
 
     print("🤖 Telegram bot started successfully")
