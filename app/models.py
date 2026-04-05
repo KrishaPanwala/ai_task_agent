@@ -1,6 +1,6 @@
 from sqlalchemy import Column, Integer, String, DateTime
 from app.db import Base
-
+from datetime import timezone
 
 class Task(Base):
 
@@ -10,6 +10,7 @@ class Task(Base):
 
     task = Column(String, nullable=False)
 
+    # store timezone-aware UTC datetime
     time = Column(DateTime(timezone=True), nullable=False)
 
     chat_id = Column(String, nullable=True)

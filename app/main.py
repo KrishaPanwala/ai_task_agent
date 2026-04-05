@@ -5,16 +5,18 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 
 from pathlib import Path
-import asyncio
 import os
 import dateparser
+
+from telegram import Update
 
 from app.db import engine, SessionLocal
 from app.models import Base, Task
 from app.ai import extract_task
 from app.scheduler import start_scheduler
-from app.telegram_bot import start_telegram_bot
 from app.telegram import send_telegram_message
+from app.telegram_bot import application
+from app.config import RENDER_URL
 
 
 # -----------------------------
@@ -46,7 +48,8 @@ templates = Jinja2Templates(
 
 app.mount(
     "/static",
-    StaticFiles(directory=str(BASE_DIR / "static")),
+    StaticFiles(directory=str(BASE_DIR / "static"),
+    ),
     name="static"
 )
 
@@ -58,15 +61,34 @@ app.mount(
 async def home(request: Request):
 
     return templates.TemplateResponse(
-        name="index.html",
-        request=request,
-        context={}
+        "index.html",
+        {"request": request}
     )
+
 
 @app.get("/health")
 @app.head("/health")
 async def health():
-    return {"status": "running"}   
+    return {"status": "running"}
+
+
+# -----------------------------
+# Telegram Webhook
+# -----------------------------
+@app.post("/telegram/webhook")
+async def telegram_webhook(request: Request):
+
+    data = await request.json()
+
+    update = Update.de_json(
+        data,
+        application.bot
+    )
+
+    await application.initialize()
+    await application.process_update(update)
+
+    return {"status": "ok"}
 
 
 # -----------------------------
@@ -83,8 +105,13 @@ async def extract(message: str = Query(...)):
         )
 
     parsed_time = dateparser.parse(
-        result["time"],
-        settings={"PREFER_DATES_FROM": "future"}
+    result["time"],
+    settings={
+        "PREFER_DATES_FROM": "future",
+        "RETURN_AS_TIMEZONE_AWARE": True,
+        "TIMEZONE": "UTC"
+    }
+
     )
 
     if not parsed_time:
@@ -104,7 +131,6 @@ async def extract(message: str = Query(...)):
     db.commit()
     db.close()
 
-    # Send telegram notification
     try:
         send_telegram_message(
             f"✅ Task Added\n\n{result['task']}\n⏰ {parsed_time}"
@@ -162,23 +188,23 @@ async def delete_task(task_id: int):
 # -----------------------------
 # Startup Services
 # -----------------------------
-telegram_started = False
-
-
 @app.on_event("startup")
 async def start_services():
-
-    global telegram_started
 
     Base.metadata.create_all(bind=engine)
 
     start_scheduler()
 
-    if os.getenv("TELEGRAM_BOT_TOKEN") and not telegram_started:
+    if os.getenv("TELEGRAM_BOT_TOKEN"):
 
-        telegram_started = True
-        asyncio.create_task(start_telegram_bot())
+        webhook_url = f"{RENDER_URL}/telegram/webhook"
 
-        print("🤖 Telegram bot started")
+        await application.initialize()
+
+        await application.bot.set_webhook(
+            webhook_url
+        )
+
+        print("🤖 Telegram webhook set:", webhook_url)
 
     print("✅ Services started successfully")

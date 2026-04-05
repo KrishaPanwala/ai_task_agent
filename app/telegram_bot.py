@@ -1,8 +1,8 @@
-import asyncio
 from telegram.ext import (
     ApplicationBuilder,
     CommandHandler,
     MessageHandler,
+    ContextTypes,
     filters
 )
 
@@ -13,13 +13,20 @@ from app.models import Task
 import dateparser
 
 
-async def start(update, context):
+# -----------------------------
+# Start Command
+# -----------------------------
+async def start(update, context: ContextTypes.DEFAULT_TYPE):
+
     await update.message.reply_text(
-        "🤖 AI Reminder Bot Ready"
+        "🤖 AI Reminder Bot Ready\n\nSend message like:\nremind me to drink water at 9 pm"
     )
 
 
-async def handle_message(update, context):
+# -----------------------------
+# Handle Telegram Messages
+# -----------------------------
+async def handle_message(update, context: ContextTypes.DEFAULT_TYPE):
 
     user_message = update.message.text
     chat_id = update.message.chat_id
@@ -65,29 +72,24 @@ async def handle_message(update, context):
     db.close()
 
     await update.message.reply_text(
-        f"✅ Task Added\n\n{result['task']}"
+        f"✅ Task Added\n\n📌 {result['task']}\n⏰ {parsed_time}"
     )
 
 
-async def start_telegram_bot():
+# -----------------------------
+# Telegram Application
+# -----------------------------
+application = ApplicationBuilder().token(
+    TELEGRAM_BOT_TOKEN
+).build()
 
-    print("🤖 Telegram bot starting...")
+application.add_handler(
+    CommandHandler("start", start)
+)
 
-    application = ApplicationBuilder().token(
-        TELEGRAM_BOT_TOKEN
-    ).build()
-
-    application.add_handler(CommandHandler("start", start))
-    application.add_handler(
-        MessageHandler(
-            filters.TEXT & ~filters.COMMAND,
-            handle_message
-        )
+application.add_handler(
+    MessageHandler(
+        filters.TEXT & ~filters.COMMAND,
+        handle_message
     )
-
-    print("🤖 Telegram polling started")
-
-    await application.run_polling(
-        close_loop=False,
-        stop_signals=None
-    )
+)

@@ -2,13 +2,16 @@ import requests
 import os
 
 
-def send_telegram_message(message, chat_id):
+def send_telegram_message(message, chat_id=None):
 
     TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 
     if not TOKEN:
         print("❌ Telegram token missing")
         return
+
+    if not chat_id:
+        chat_id = os.getenv("TELEGRAM_CHAT_ID")
 
     if not chat_id:
         print("❌ Chat ID missing")
@@ -22,7 +25,11 @@ def send_telegram_message(message, chat_id):
     }
 
     try:
-        response = requests.post(url, data=data)
+        response = requests.post(
+            url,
+            data=data,
+            timeout=10
+        )
 
         print("📤 Telegram sent:", response.status_code)
 

@@ -7,11 +7,16 @@ from app.models import Task
 from app.telegram import send_telegram_message
 
 
+# -----------------------------
+# Check Tasks Loop
+# -----------------------------
 def check_tasks():
 
     print("⏰ Scheduler started")
 
     while True:
+
+        db = None
 
         try:
             db = SessionLocal()
@@ -33,7 +38,7 @@ def check_tasks():
                 )
 
                 send_telegram_message(
-                    f"🔔 Reminder\n\n{task.task}",
+                    f"🔔 Reminder\n\n📌 {task.task}",
                     task.chat_id
                 )
 
@@ -42,14 +47,21 @@ def check_tasks():
 
                 print("✅ Task completed and deleted")
 
-            db.close()
-
         except Exception as e:
+
             print("❌ Scheduler error:", e)
+
+        finally:
+
+            if db:
+                db.close()
 
         time.sleep(10)
 
 
+# -----------------------------
+# Start Scheduler Thread
+# -----------------------------
 def start_scheduler():
 
     thread = threading.Thread(

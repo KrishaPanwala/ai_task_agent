@@ -6,7 +6,7 @@ import re
 client = Groq(api_key=GROQ_API_KEY)
 
 
-def extract_task(user_message: str):
+def extract_task(user_message: str) -> dict:
 
     prompt = f"""
     Extract task and time from this message.
@@ -31,20 +31,27 @@ def extract_task(user_message: str):
             ]
         )
 
-        content = response.choices[0].message.content
+        content = response.choices[0].message.content.strip()
 
         print("🤖 RAW AI:", content)
 
         match = re.search(r'\{.*\}', content, re.DOTALL)
 
         if not match:
-            print("❌ No JSON found")
+            print(f"❌ No JSON found for message: {user_message}")
             return {}
 
-        json_text = match.group()
+        json_text = match.group().strip()
 
-        return json.loads(json_text)
+        data = json.loads(json_text)
+
+        # validate fields
+        if not data.get("task") or not data.get("time"):
+            print(f"❌ Incomplete AI output: {data}")
+            return {}
+
+        return data
 
     except Exception as e:
-        print("Groq error:", e)
+        print(f"❌ Groq error: {e} | message: {user_message}")
         return {}
