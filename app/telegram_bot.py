@@ -1,3 +1,4 @@
+# app/telegram_bot.py
 import dateparser
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters
 from app.config import TELEGRAM_BOT_TOKEN
@@ -15,13 +16,11 @@ async def handle_message(update, context):
     chat_id = update.message.chat_id
 
     result = extract_task(user_message)
-
     if "task" not in result or "time" not in result:
         await update.message.reply_text("❌ Could not understand task")
         return
 
     parsed_time = dateparser.parse(result["time"], settings={"PREFER_DATES_FROM": "future", "RETURN_AS_TIMEZONE_AWARE": True})
-
     if not parsed_time:
         await update.message.reply_text("❌ Invalid time")
         return
@@ -34,6 +33,5 @@ async def handle_message(update, context):
 
     await update.message.reply_text(f"✅ Task Added\n\n{result['task']}")
 
-# Add handlers
 application.add_handler(CommandHandler("start", start))
 application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
