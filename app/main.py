@@ -66,7 +66,7 @@ async def extract(message: str = Query(...)):
     db.commit()
     db.close()
     try:
-        send_telegram_message(f"✅ Task Added\n\n{result['task']}\n⏰ {parsed_time}",
+        send_telegram_message(f"✅ Task Added\n\n{result['task']}\n⏰ {parsed_time.strftime('%d %b %Y at %I:%M %p')}", 
                               os.getenv("TELEGRAM_CHAT_ID"))
     except:
         pass
@@ -76,7 +76,14 @@ async def extract(message: str = Query(...)):
 async def get_tasks():
     db = SessionLocal()
     tasks = db.query(Task).all()
-    result = [{"id": t.id, "task": t.task, "time": str(t.time)} for t in tasks]
+    result = [
+        {
+            "id": t.id,
+            "task": t.task,
+            "time": t.time.strftime("%d %b %Y at %I:%M %p")  # ✅ formatted
+        }
+        for t in tasks
+    ]
     db.close()
     return result
 

@@ -1,17 +1,4 @@
-// ✅ Add this function at the top
-function formatTime(rawTime) {
-    const date = new Date(rawTime + 'Z'); // treat as UTC
-    return date.toLocaleString('en-IN', {
-        timeZone: 'Asia/Kolkata',
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: true
-    });
-}
-
+// ✅ script.js — final correct version
 async function addTask() {
     let message = document.getElementById("taskInput").value;
     await fetch(`/extract?message=${message}`);
@@ -26,7 +13,7 @@ async function loadTasks() {
     tasks.forEach(task => {
         taskList.innerHTML += `
             <div class="task">
-                ${task.task} - ⏰ ${formatTime(task.time)}
+                ${task.task} - ⏰ ${task.time}
                 <button onclick="deleteTask(${task.id})">Delete</button>
             </div>
         `;
