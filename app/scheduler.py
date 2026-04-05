@@ -16,34 +16,31 @@ def check_tasks():
         try:
             db = SessionLocal()
 
-            tasks = db.query(Task).all()
-
             now = datetime.now(timezone.utc)
+
+            tasks = db.query(Task).filter(
+                Task.time <= now
+            ).all()
 
             for task in tasks:
 
-                task_time = task.time
+                print(
+                    f"🕒 Task: {task.task} | Chat: {task.chat_id}"
+                )
 
-                if task_time.tzinfo is None:
-                    task_time = task_time.replace(tzinfo=timezone.utc)
+                print(
+                    f"🔔 Sending reminder: {task.task}"
+                )
 
-                diff = (task_time - now).total_seconds()
+                send_telegram_message(
+                    f"🔔 Reminder\n\n{task.task}",
+                    task.chat_id
+                )
 
-                print(f"🕒 Task: {task.task} | Time left: {diff}")
+                db.delete(task)
+                db.commit()
 
-                if 0 <= diff <= 30:
-
-                    print("🔔 Sending reminder:", task.task)
-
-                    send_telegram_message(
-                        f"🔔 Reminder\n\n{task.task}",
-                        task.chat_id
-                    )
-
-                    db.delete(task)
-                    db.commit()
-
-                    print("✅ Task completed and deleted")
+                print("✅ Task completed and deleted")
 
             db.close()
 

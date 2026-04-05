@@ -162,14 +162,23 @@ async def delete_task(task_id: int):
 # -----------------------------
 # Startup Services
 # -----------------------------
+telegram_started = False
+
+
 @app.on_event("startup")
 async def start_services():
+
+    global telegram_started
 
     Base.metadata.create_all(bind=engine)
 
     start_scheduler()
 
-    if os.getenv("TELEGRAM_BOT_TOKEN"):
+    if os.getenv("TELEGRAM_BOT_TOKEN") and not telegram_started:
+
+        telegram_started = True
         asyncio.create_task(start_telegram_bot())
+
+        print("🤖 Telegram bot started")
 
     print("✅ Services started successfully")

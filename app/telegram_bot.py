@@ -95,11 +95,18 @@ async def start_telegram_bot():
 
     application.add_handler(CommandHandler("start", start))
     application.add_handler(
-        MessageHandler(
-            filters.TEXT & ~filters.COMMAND,
-            handle_message
-        )
+        MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message)
     )
+
+    print("🤖 Telegram bot starting...")
+
+    await application.initialize()
+
+    await application.bot.delete_webhook(
+        drop_pending_updates=True
+    )
+
+    await application.run_polling()
 
     print("🤖 Telegram bot starting...")
 
