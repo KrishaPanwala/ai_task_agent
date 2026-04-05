@@ -23,8 +23,14 @@ app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="stat
 
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request})
-
+    return templates.TemplateResponse(
+        name="index.html",
+        request=request,
+        context={
+            "request": request,
+            "title": "AI Reminder Bot"
+        }
+    )
 @app.get("/health")
 @app.head("/health")
 async def health():
