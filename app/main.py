@@ -3,38 +3,31 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
+
 from pathlib import Path
-import asyncio
 import os
 import dateparser
+import asyncio
 
-from app.db import Base, engine, SessionLocal
+from app.db import engine, SessionLocal, Base
 from app.models import Task
 from app.ai import extract_task
 from app.scheduler import start_scheduler
 from app.telegram_bot import application as telegram_app
 from app.telegram import send_telegram_message
 
-# -----------------------------
-# FastAPI app
-# -----------------------------
+# FastAPI App
 app = FastAPI()
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# CORS
+app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
+# Templates & Static
 BASE_DIR = Path(__file__).resolve().parent
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
 
-# -----------------------------
 # Routes
-# -----------------------------
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
@@ -47,13 +40,10 @@ async def health():
 @app.get("/extract")
 async def extract(message: str = Query(...)):
     result = extract_task(message)
-    if not result:
+    if "task" not in result or "time" not in result:
         return JSONResponse({"error": "could not extract"})
 
-    parsed_time = dateparser.parse(
-        result["time"],
-        settings={"PREFER_DATES_FROM": "future", "RETURN_AS_TIMEZONE_AWARE": True, "TIMEZONE": "UTC"}
-    )
+    parsed_time = dateparser.parse(result["time"], settings={"PREFER_DATES_FROM": "future"})
     if not parsed_time:
         return JSONResponse({"error": "invalid time"})
 
@@ -64,7 +54,7 @@ async def extract(message: str = Query(...)):
     db.close()
 
     try:
-        send_telegram_message(f"✅ Task Added\n📌 {result['task']}\n⏰ {parsed_time}")
+        send_telegram_message(f"✅ Task Added\n\n{result['task']}\n⏰ {parsed_time}", os.getenv("TELEGRAM_CHAT_ID"))
     except:
         pass
 
@@ -88,12 +78,11 @@ async def delete_task(task_id: int):
     db.close()
     return {"status": "deleted"}
 
-# -----------------------------
 # Startup
-# -----------------------------
 @app.on_event("startup")
-async def startup():
+async def start_services():
     Base.metadata.create_all(bind=engine)
     start_scheduler()
-    asyncio.create_task(telegram_app.start_polling(close_loop=False, stop_signals=None))
-    print("✅ Services started")
+    # Telegram bot in background
+    asyncio.create_task(telegram_app.run_polling(close_loop=False))
+    print("✅ Services started successfully")
