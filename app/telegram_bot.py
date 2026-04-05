@@ -31,7 +31,11 @@ async def handle_message(update, context):
     db.commit()
     db.close()
 
-    await update.message.reply_text(f"✅ Task Added\n\n{result['task']}")
+    await update.message.reply_text(
+    f"✅ Task Added\n\n"
+    f"📌 {result['task']}\n"
+    f"⏰ {parsed_time.strftime('%d %b %Y at %I:%M %p')}"
+    )
 
 application.add_handler(CommandHandler("start", start))
 application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
