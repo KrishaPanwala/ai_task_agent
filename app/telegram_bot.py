@@ -93,11 +93,12 @@ async def start_telegram_bot():
 
     await application.start()
 
-    print("🤖 Telegram bot polling started")
+    print("🤖 Telegram polling started")
 
-    asyncio.create_task(
-        application.run_polling(
-            close_loop=False,
-            stop_signals=None
-        )
-    )
+    while True:
+        try:
+            await application.process_update_queue()
+        except Exception as e:
+            print("Telegram polling error:", e)
+
+        await asyncio.sleep(1)
