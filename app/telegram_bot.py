@@ -85,7 +85,6 @@ async def start_telegram_bot():
         )
     )
 
-    # ✅ This is the correct method
     await application.initialize()
 
     await application.bot.delete_webhook(
@@ -94,8 +93,11 @@ async def start_telegram_bot():
 
     await application.start()
 
-    asyncio.create_task(
-        application.run_polling(close_loop=False)
-    )
+    print("🤖 Telegram bot polling started")
 
-    print("🤖 Telegram bot started successfully")
+    asyncio.create_task(
+        application.run_polling(
+            close_loop=False,
+            stop_signals=None
+        )
+    )
