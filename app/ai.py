@@ -33,10 +33,18 @@ def extract_task(user_message: str):
 
         content = response.choices[0].message.content
 
-        json_text = re.search(r'\{.*\}', content, re.DOTALL).group()
+        print("🤖 RAW AI:", content)
+
+        match = re.search(r'\{.*\}', content, re.DOTALL)
+
+        if not match:
+            print("❌ No JSON found")
+            return {}
+
+        json_text = match.group()
 
         return json.loads(json_text)
 
     except Exception as e:
         print("Groq error:", e)
-        return {"error": str(e)}
+        return {}
