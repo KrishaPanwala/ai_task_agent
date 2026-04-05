@@ -85,20 +85,9 @@ async def start_telegram_bot():
         )
     )
 
-    await application.initialize()
-
-    await application.bot.delete_webhook(
-        drop_pending_updates=True
-    )
-
-    await application.start()
-
     print("🤖 Telegram polling started")
 
-    while True:
-        try:
-            await application.process_update_queue()
-        except Exception as e:
-            print("Telegram polling error:", e)
-
-        await asyncio.sleep(1)
+    await application.run_polling(
+        close_loop=False,
+        stop_signals=None
+    )
