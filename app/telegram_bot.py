@@ -1,38 +1,25 @@
-from telegram import Update
+import asyncio
 from telegram.ext import (
     ApplicationBuilder,
     CommandHandler,
     MessageHandler,
-    ContextTypes,
     filters
 )
 
+from app.config import TELEGRAM_BOT_TOKEN
 from app.ai import extract_task
 from app.db import SessionLocal
 from app.models import Task
-from app.config import TELEGRAM_BOT_TOKEN
-
 import dateparser
-from datetime import timezone
-import asyncio
 
 
-# -------------------------
-# START COMMAND
-# -------------------------
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-
+async def start(update, context):
     await update.message.reply_text(
-        "🤖 AI Reminder Bot\n\n"
-        "Send message like:\n"
-        "remind me tomorrow 7pm to study"
+        "🤖 AI Reminder Bot Ready"
     )
 
 
-# -------------------------
-# HANDLE MESSAGE
-# -------------------------
-async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def handle_message(update, context):
 
     user_message = update.message.text
     chat_id = update.message.chat_id
@@ -57,13 +44,13 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         }
     )
 
+    print("🕒 Parsed time:", parsed_time)
+
     if not parsed_time:
         await update.message.reply_text(
             "❌ Invalid time"
         )
         return
-
-    parsed_time = parsed_time.astimezone(timezone.utc)
 
     db = SessionLocal()
 
@@ -78,16 +65,13 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     db.close()
 
     await update.message.reply_text(
-        f"✅ Task Added\n\n"
-        f"{result['task']}\n"
-        f"⏰ {parsed_time}"
+        f"✅ Task Added\n\n{result['task']}"
     )
 
 
-# -------------------------
-# START TELEGRAM BOT
-# -------------------------
 async def start_telegram_bot():
+
+    print("🤖 Telegram bot starting...")
 
     application = ApplicationBuilder().token(
         TELEGRAM_BOT_TOKEN
@@ -95,11 +79,13 @@ async def start_telegram_bot():
 
     application.add_handler(CommandHandler("start", start))
     application.add_handler(
-        MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message)
+        MessageHandler(
+            filters.TEXT & ~filters.COMMAND,
+            handle_message
+        )
     )
 
-    print("🤖 Telegram bot starting...")
-
+    # ✅ This is the correct method
     await application.initialize()
 
     await application.bot.delete_webhook(
@@ -108,7 +94,8 @@ async def start_telegram_bot():
 
     await application.start()
 
-    # ✅ Correct polling for async apps
-    asyncio.create_task(application._run_polling())
+    asyncio.create_task(
+        application.run_polling(close_loop=False)
+    )
 
     print("🤖 Telegram bot started successfully")
