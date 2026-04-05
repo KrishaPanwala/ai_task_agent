@@ -15,6 +15,9 @@ from app.scheduler import start_scheduler
 from app.telegram_bot_runner import start_telegram_bot_background
 from app.telegram import send_telegram_message
 from app.telegram_bot import application as telegram_app
+from zoneinfo import ZoneInfo
+
+IST = ZoneInfo("Asia/Kolkata")
 
 app = FastAPI()
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True,

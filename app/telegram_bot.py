@@ -5,6 +5,9 @@ from app.config import TELEGRAM_BOT_TOKEN
 from app.ai import extract_task
 from app.db import SessionLocal
 from app.models import Task
+from zoneinfo import ZoneInfo
+
+IST = ZoneInfo("Asia/Kolkata")
 
 application = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
 
