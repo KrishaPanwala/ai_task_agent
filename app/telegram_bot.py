@@ -1,12 +1,13 @@
 # app/telegram_bot.py
 import dateparser
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, CallbackQueryHandler, filters
 from app.config import TELEGRAM_BOT_TOKEN
 from app.ai import extract_task
 from app.db import SessionLocal
 from app.models import Task
-from zoneinfo import ZoneInfo
 
 IST = ZoneInfo("Asia/Kolkata")
 
@@ -77,6 +78,38 @@ async def clear_tasks(update, context):
     db.close()
     await update.message.reply_text(f"🗑️ Cleared *{count}* reminder(s)!", parse_mode="Markdown")
 
+# ✅ Snooze/Done button handler
+async def handle_snooze(update, context):
+    query = update.callback_query
+    await query.answer()
+
+    data = query.data
+    db = SessionLocal()
+
+    if data.startswith("done_"):
+        await query.edit_message_text("✅ Reminder marked as done!")
+
+    elif data.startswith("snooze_"):
+        parts = data.split("_")
+        minutes = int(parts[1])
+
+        new_time = datetime.now(IST) + timedelta(minutes=minutes)
+        task_text = query.message.text.split("📌 ")[-1].strip()
+
+        new_task = Task(
+            task=task_text,
+            time=new_time,
+            chat_id=str(query.message.chat_id)
+        )
+        db.add(new_task)
+        db.commit()
+        await query.edit_message_text(
+            f"⏰ Snoozed for {minutes} minute(s)!\n"
+            f"New reminder at: {new_time.strftime('%d %b %Y at %I:%M %p')}"
+        )
+
+    db.close()
+
 async def handle_message(update, context):
     user_message = update.message.text
     chat_id = update.message.chat_id
@@ -113,3 +146,4 @@ application.add_handler(CommandHandler("list", list_tasks))
 application.add_handler(CommandHandler("delete", delete_task))
 application.add_handler(CommandHandler("clear", clear_tasks))
 application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+application.add_handler(CallbackQueryHandler(handle_snooze))  # ✅ snooze handler
