@@ -7,48 +7,41 @@ import re
 client = Groq(api_key=GROQ_API_KEY)
 
 def extract_task(user_message: str) -> dict:
-    prompt = f"""
-    Extract task, time, and recurrence from this message.
+    prompt = f"""Extract task, time, and recurrence from this message: "{user_message}"
 
-    Message: {user_message}
+Return ONLY this JSON, nothing else, no explanation, no markdown:
+{{"task": "", "time": "", "is_recurring": false, "recur_type": null, "recur_value": null}}
 
-    Rules:
-    - If message says "every day" or "daily" → recur_type = "daily"
-    - If message says "every hour" → recur_type = "hourly"
-    - If message says "every X minutes" → recur_type = "interval", recur_value = X (in minutes)
-    - If message says "every monday/tuesday/etc" → recur_type = "weekly", recur_value = "monday"
-    - If no recurrence → is_recurring = false, recur_type = null, recur_value = null
-    - time should be the first occurrence time (e.g. "8am", "tomorrow 6pm")
-
-    Return only JSON:
-    {{
-        "task": "",
-        "time": "",
-        "is_recurring": false,
-        "recur_type": null,
-        "recur_value": null
-    }}
-    """
+Rules:
+- "every day" or "daily" or "everyday" → is_recurring=true, recur_type="daily"
+- "every hour" → is_recurring=true, recur_type="hourly"
+- "every X minutes" → is_recurring=true, recur_type="interval", recur_value="X"
+- "every monday/tuesday/etc" → is_recurring=true, recur_type="weekly", recur_value="monday"
+- No recurrence → is_recurring=false, recur_type=null, recur_value=null"""
 
     try:
         response = client.chat.completions.create(
             model="llama-3.1-8b-instant",
             messages=[
-                {"role": "system", "content": "You extract task, time and recurrence info from reminder messages. Always return valid JSON only."},
+                {"role": "system", "content": "You are a JSON extractor. Return ONLY valid JSON. No explanation, no markdown, no extra text."},
                 {"role": "user", "content": prompt}
-            ]
+            ],
+            temperature=0  # ✅ makes output more deterministic
         )
 
         content = response.choices[0].message.content.strip()
         print("🤖 RAW AI:", content)
 
-        match = re.search(r'\{.*\}', content, re.DOTALL)
+        # ✅ Strip markdown code blocks if present
+        content = re.sub(r'```json|```', '', content).strip()
+
+        # ✅ Extract first JSON object
+        match = re.search(r'\{.*?\}', content, re.DOTALL)
         if not match:
             print(f"❌ No JSON found for message: {user_message}")
             return {}
 
-        json_text = match.group().strip()
-        data = json.loads(json_text)
+        data = json.loads(match.group().strip())
 
         if not data.get("task") or not data.get("time"):
             print(f"❌ Incomplete AI output: {data}")
