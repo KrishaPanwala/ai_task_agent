@@ -14,9 +14,14 @@ function showToast(msg) {
     setTimeout(() => toast.classList.remove("show"), 3000);
 }
 
+function parseTaskTime(timeStr) {
+    // Convert "07 Apr 2026 at 12:30 PM" → "07 Apr 2026 12:30 PM"
+    const cleaned = timeStr.replace(" at ", " ");
+    return new Date(cleaned);
+}
+
 function getCountdown(timeStr) {
-    // timeStr is like "05 Apr 2026 at 05:30 PM"
-    const date = new Date(timeStr);
+    const date = parseTaskTime(timeStr);
     const now = new Date();
     const diff = date - now;
 
@@ -34,10 +39,11 @@ function getCountdown(timeStr) {
     else text = "< 1 min";
 
     return {
-        text: diff < 0 ? `Overdue by ${text}` : `in ${text}`,
+        text: diff < 0 ? `⚠️ Overdue by ${text}` : `⏳ in ${text}`,
         overdue: diff < 0
     };
 }
+
 
 async function addTask() {
     const input = document.getElementById("taskInput");
@@ -81,7 +87,7 @@ async function loadTasks() {
         let overdue = 0, upcoming = 0, recurring = 0;
 
         tasks.forEach(t => {
-            const d = new Date(t.time);
+            const d = parseTaskTime(t.time);  // ✅ use parseTaskTime instead of new Date()
             if (isNaN(d)) return;
             if (d < now) overdue++;
             else upcoming++;
