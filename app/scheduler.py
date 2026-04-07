@@ -1,15 +1,20 @@
 # app/scheduler.py
-import threading, time
+import threading, time, asyncio
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import CallbackQueryHandler
-import asyncio
 from app.db import SessionLocal
 from app.models import Task
 from app.telegram_bot import application as telegram_app
 
 IST = ZoneInfo("Asia/Kolkata")
+
+# ✅ Store the main event loop at startup
+main_loop = None
+
+def set_main_loop(loop):
+    global main_loop
+    main_loop = loop
 
 def check_tasks():
     print("⏰ Scheduler started")
@@ -26,12 +31,16 @@ def check_tasks():
                         InlineKeyboardButton("⏰ 1 hr", callback_data=f"snooze_60_{task.id}"),
                     ]
                 ])
-                asyncio.run(telegram_app.bot.send_message(
-                    chat_id=task.chat_id,
-                    text=f"🔔 *Reminder*\n\n📌 {task.task}",
-                    parse_mode="Markdown",
-                    reply_markup=keyboard
-                ))
+                # ✅ Use main event loop instead of asyncio.run()
+                asyncio.run_coroutine_threadsafe(
+                    telegram_app.bot.send_message(
+                        chat_id=task.chat_id,
+                        text=f"🔔 *Reminder*\n\n📌 {task.task}",
+                        parse_mode="Markdown",
+                        reply_markup=keyboard
+                    ),
+                    main_loop
+                )
                 db.delete(task)
                 db.commit()
             db.close()

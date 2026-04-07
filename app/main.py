@@ -103,10 +103,15 @@ async def delete_task(task_id: int):
 @app.on_event("startup")
 async def start_services():
     Base.metadata.create_all(bind=engine)
+    
+    # ✅ Pass current event loop to scheduler
+    from app.scheduler import set_main_loop
+    set_main_loop(asyncio.get_event_loop())
+    
     start_scheduler()
     asyncio.create_task(start_telegram_bot_background())
     print("✅ Services started successfully")
-
+    
 # ✅ Graceful shutdown
 @app.on_event("shutdown")
 async def shutdown_services():
