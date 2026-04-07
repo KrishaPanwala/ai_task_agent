@@ -1,25 +1,54 @@
 <!DOCTYPE html>
-<html>
-
+<html lang="en">
 <head>
-    <title>AI Task Automation</title>
+    <title>AI Reminder Dashboard</title>
     <link rel="stylesheet" href="/static/style.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
-
 <body>
 
-    <h1>AI Task Automation Dashboard</h1>
+    <div class="container">
+        <div class="header">
+            <h1>🤖 AI Reminder Bot</h1>
+            <p class="subtitle">Type naturally — AI will handle the rest</p>
+        </div>
 
-    <div class="box">
-        <input type="text" id="taskInput" placeholder="Remind me tomorrow 7pm to study">
-        <button onclick="addTask()">Add Task</button>
+        <div class="input-box">
+            <input type="text" id="taskInput" 
+                placeholder="Remind me to drink water every day at 8am" 
+                onkeypress="if(event.key==='Enter') addTask()">
+            <button onclick="addTask()" id="addBtn">
+                <span id="btnText">Add Reminder</span>
+            </button>
+        </div>
+
+        <div class="stats">
+            <div class="stat-card">
+                <span id="totalCount">0</span>
+                <label>Total</label>
+            </div>
+            <div class="stat-card upcoming">
+                <span id="upcomingCount">0</span>
+                <label>Upcoming</label>
+            </div>
+            <div class="stat-card overdue">
+                <span id="overdueCount">0</span>
+                <label>Overdue</label>
+            </div>
+            <div class="stat-card recurring">
+                <span id="recurringCount">0</span>
+                <label>Recurring</label>
+            </div>
+        </div>
+
+        <div class="section-header">
+            <h2>📋 Your Reminders</h2>
+            <button onclick="loadTasks()" class="refresh-btn">🔄 Refresh</button>
+        </div>
+
+        <div id="taskList"></div>
     </div>
 
-    <h2>Tasks</h2>
-
-    <div id="taskList"></div>
-
     <script src="/static/script.js"></script>
-
 </body>
 </html>
