@@ -21,11 +21,11 @@ async def start(update, context):
         "/delete <id> — delete a reminder\n"
         "/clear — delete all reminders\n\n"
         "💬 Or just type naturally:\n"
-        "_Remind me to drink water at 5pm_",
+        "_Remind me to drink water at 5pm_\n"
+        "_Remind me to exercise every day at 7am_",
         parse_mode="Markdown"
     )
 
-# ✅ /list command
 async def list_tasks(update, context):
     chat_id = str(update.message.chat_id)
     db = SessionLocal()
@@ -38,12 +38,12 @@ async def list_tasks(update, context):
 
     msg = "📋 *Your Pending Reminders:*\n\n"
     for task in tasks:
+        recur_info = f"\n   🔁 Repeats: {task.recur_type}" if task.is_recurring else ""
         msg += f"🔹 *ID {task.id}* — {task.task}\n"
-        msg += f"   ⏰ {task.time.strftime('%d %b %Y at %I:%M %p')}\n\n"
+        msg += f"   ⏰ {task.time.strftime('%d %b %Y at %I:%M %p')}{recur_info}\n\n"
 
     await update.message.reply_text(msg, parse_mode="Markdown")
 
-# ✅ /delete <id> command
 async def delete_task(update, context):
     chat_id = str(update.message.chat_id)
     if not context.args:
@@ -66,7 +66,6 @@ async def delete_task(update, context):
         await update.message.reply_text("❌ Task not found or not yours!")
     db.close()
 
-# ✅ /clear command
 async def clear_tasks(update, context):
     chat_id = str(update.message.chat_id)
     db = SessionLocal()
@@ -78,7 +77,6 @@ async def clear_tasks(update, context):
     db.close()
     await update.message.reply_text(f"🗑️ Cleared *{count}* reminder(s)!", parse_mode="Markdown")
 
-# ✅ Snooze/Done button handler
 async def handle_snooze(update, context):
     query = update.callback_query
     await query.answer()
@@ -94,12 +92,13 @@ async def handle_snooze(update, context):
         minutes = int(parts[1])
 
         new_time = datetime.now(IST) + timedelta(minutes=minutes)
-        task_text = query.message.text.split("📌 ")[-1].strip()
+        task_text = query.message.text.split("📌 ")[-1].split("\n")[0].strip()
 
         new_task = Task(
             task=task_text,
             time=new_time,
-            chat_id=str(query.message.chat_id)
+            chat_id=str(query.message.chat_id),
+            is_recurring=False
         )
         db.add(new_task)
         db.commit()
@@ -130,15 +129,29 @@ async def handle_message(update, context):
         return
 
     db = SessionLocal()
-    new_task = Task(task=result["task"], time=parsed_time, chat_id=str(chat_id))
+    new_task = Task(
+        task=result["task"],
+        time=parsed_time,
+        chat_id=str(chat_id),
+        is_recurring=result.get("is_recurring", False),
+        recur_type=result.get("recur_type", None),
+        recur_value=result.get("recur_value", None)
+    )
     db.add(new_task)
     db.commit()
     db.close()
+
+    recur_info = ""
+    if result.get("is_recurring"):
+        recur_info = f"\n🔁 Repeats: {result.get('recur_type')}"
+        if result.get('recur_value'):
+            recur_info += f" ({result.get('recur_value')})"
 
     await update.message.reply_text(
         f"✅ Task Added\n\n"
         f"📌 {result['task']}\n"
         f"⏰ {parsed_time.strftime('%d %b %Y at %I:%M %p')}"
+        f"{recur_info}"
     )
 
 application.add_handler(CommandHandler("start", start))
@@ -146,4 +159,4 @@ application.add_handler(CommandHandler("list", list_tasks))
 application.add_handler(CommandHandler("delete", delete_task))
 application.add_handler(CommandHandler("clear", clear_tasks))
 application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-application.add_handler(CallbackQueryHandler(handle_snooze))  # ✅ snooze handler
+application.add_handler(CallbackQueryHandler(handle_snooze))

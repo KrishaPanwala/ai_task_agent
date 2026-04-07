@@ -11,13 +11,10 @@ import os, dateparser, asyncio
 from app.db import engine, SessionLocal, Base
 from app.models import Task
 from app.ai import extract_task
-from app.scheduler import start_scheduler
+from app.scheduler import start_scheduler, set_main_loop
 from app.telegram_bot_runner import start_telegram_bot_background
 from app.telegram import send_telegram_message
 from app.telegram_bot import application as telegram_app
-from zoneinfo import ZoneInfo
-
-IST = ZoneInfo("Asia/Kolkata")
 
 app = FastAPI()
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True,
@@ -56,21 +53,35 @@ async def extract(message: str = Query(...)):
     if "task" not in result or "time" not in result:
         return JSONResponse({"error": "could not extract"})
     parsed_time = dateparser.parse(result["time"], settings={
-    "PREFER_DATES_FROM": "future",
-    "RETURN_AS_TIMEZONE_AWARE": True,
-    "TIMEZONE": "Asia/Kolkata",
-    "TO_TIMEZONE": "Asia/Kolkata"
-})
+        "PREFER_DATES_FROM": "future",
+        "RETURN_AS_TIMEZONE_AWARE": True,
+        "TIMEZONE": "Asia/Kolkata",
+        "TO_TIMEZONE": "Asia/Kolkata"
+    })
     if not parsed_time:
         return JSONResponse({"error": "invalid time"})
     db = SessionLocal()
-    new_task = Task(task=result["task"], time=parsed_time, chat_id=os.getenv("TELEGRAM_CHAT_ID"))
+    new_task = Task(
+        task=result["task"],
+        time=parsed_time,
+        chat_id=os.getenv("TELEGRAM_CHAT_ID"),
+        is_recurring=result.get("is_recurring", False),
+        recur_type=result.get("recur_type", None),
+        recur_value=result.get("recur_value", None)
+    )
     db.add(new_task)
     db.commit()
     db.close()
     try:
-        send_telegram_message(f"✅ Task Added\n\n{result['task']}\n⏰ {parsed_time.strftime('%d %b %Y at %I:%M %p')}", 
-                              os.getenv("TELEGRAM_CHAT_ID"))
+        recur_info = ""
+        if result.get("is_recurring"):
+            recur_info = f"\n🔁 Repeats: {result.get('recur_type')}"
+            if result.get('recur_value'):
+                recur_info += f" ({result.get('recur_value')})"
+        send_telegram_message(
+            f"✅ Task Added\n\n{result['task']}\n⏰ {parsed_time.strftime('%d %b %Y at %I:%M %p')}{recur_info}",
+            os.getenv("TELEGRAM_CHAT_ID")
+        )
     except:
         pass
     return {"status": "task added"}
@@ -83,7 +94,10 @@ async def get_tasks():
         {
             "id": t.id,
             "task": t.task,
-            "time": t.time.strftime("%d %b %Y at %I:%M %p")  # ✅ formatted
+            "time": t.time.strftime("%d %b %Y at %I:%M %p"),
+            "is_recurring": t.is_recurring,
+            "recur_type": t.recur_type,
+            "recur_value": t.recur_value
         }
         for t in tasks
     ]
@@ -103,16 +117,11 @@ async def delete_task(task_id: int):
 @app.on_event("startup")
 async def start_services():
     Base.metadata.create_all(bind=engine)
-    
-    # ✅ Pass current event loop to scheduler
-    from app.scheduler import set_main_loop
     set_main_loop(asyncio.get_event_loop())
-    
     start_scheduler()
     asyncio.create_task(start_telegram_bot_background())
     print("✅ Services started successfully")
-    
-# ✅ Graceful shutdown
+
 @app.on_event("shutdown")
 async def shutdown_services():
     try:

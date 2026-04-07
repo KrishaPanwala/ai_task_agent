@@ -1,3 +1,4 @@
+# app/ai.py
 from groq import Groq
 from app.config import GROQ_API_KEY
 import json
@@ -7,14 +8,25 @@ client = Groq(api_key=GROQ_API_KEY)
 
 def extract_task(user_message: str) -> dict:
     prompt = f"""
-    Extract task and time from this message.
+    Extract task, time, and recurrence from this message.
 
     Message: {user_message}
+
+    Rules:
+    - If message says "every day" or "daily" → recur_type = "daily"
+    - If message says "every hour" → recur_type = "hourly"
+    - If message says "every X minutes" → recur_type = "interval", recur_value = X (in minutes)
+    - If message says "every monday/tuesday/etc" → recur_type = "weekly", recur_value = "monday"
+    - If no recurrence → is_recurring = false, recur_type = null, recur_value = null
+    - time should be the first occurrence time (e.g. "8am", "tomorrow 6pm")
 
     Return only JSON:
     {{
         "task": "",
-        "time": ""
+        "time": "",
+        "is_recurring": false,
+        "recur_type": null,
+        "recur_value": null
     }}
     """
 
@@ -22,7 +34,7 @@ def extract_task(user_message: str) -> dict:
         response = client.chat.completions.create(
             model="llama-3.1-8b-instant",
             messages=[
-                {"role": "system", "content": "Extract task and time"},
+                {"role": "system", "content": "You extract task, time and recurrence info from reminder messages. Always return valid JSON only."},
                 {"role": "user", "content": prompt}
             ]
         )
