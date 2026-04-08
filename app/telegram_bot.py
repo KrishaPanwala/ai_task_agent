@@ -14,18 +14,20 @@ IST = ZoneInfo("Asia/Kolkata")
 application = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
 
 async def start(update, context):
+    chat_id = update.message.chat_id
     await update.message.reply_text(
-        "🤖 *AI Reminder Bot Ready*\n\n"
-        "📌 *Commands:*\n"
-        "/list — show all pending reminders\n"
-        "/delete <id> — delete a reminder\n"
-        "/clear — delete all reminders\n\n"
-        "💬 Or just type naturally:\n"
-        "_Remind me to drink water at 5pm_\n"
-        "_Remind me to exercise every day at 7am_",
+        f"🤖 *AI Reminder Bot Ready*\n\n"
+        f"📌 *Your Chat ID:* `{chat_id}`\n\n"
+        f"Copy this ID and paste it on the web dashboard!\n\n"
+        f"*Commands:*\n"
+        f"/list — show all pending reminders\n"
+        f"/delete <id> — delete a reminder\n"
+        f"/clear — delete all reminders\n\n"
+        f"💬 Or just type naturally:\n"
+        f"_Remind me to drink water at 5pm_",
         parse_mode="Markdown"
     )
-
+    
 async def list_tasks(update, context):
     chat_id = str(update.message.chat_id)
     db = SessionLocal()
