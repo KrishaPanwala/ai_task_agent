@@ -225,14 +225,19 @@ async def delete_task(
 
 @app.on_event("startup")
 async def start_services():
+    # ✅ Step 1 — Create all new tables first (users table)
     Base.metadata.create_all(bind=engine)
+    print("✅ Tables created")
 
+    # ✅ Step 2 — Add missing columns to existing tables
+    from sqlalchemy import text
     with engine.connect() as conn:
         conn.execute(text("ALTER TABLE tasks ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id)"))
         conn.execute(text("ALTER TABLE tasks ADD COLUMN IF NOT EXISTS is_recurring BOOLEAN DEFAULT FALSE"))
         conn.execute(text("ALTER TABLE tasks ADD COLUMN IF NOT EXISTS recur_type VARCHAR"))
         conn.execute(text("ALTER TABLE tasks ADD COLUMN IF NOT EXISTS recur_value VARCHAR"))
         conn.commit()
+    print("✅ Migrations done")
 
     set_main_loop(asyncio.get_event_loop())
     start_scheduler()
