@@ -72,7 +72,13 @@ async function saveChatId() {
 
 // ✅ Logout
 async function logout() {
-    await fetch("/logout", { method: "POST" });
+    try {
+        await fetch("/logout", { 
+            method: "POST",
+            credentials: "include"  // ✅ include cookies
+        });
+    } catch {}
+    // ✅ Force redirect regardless
     window.location.href = "/login";
 }
 
