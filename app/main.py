@@ -8,6 +8,7 @@ from pathlib import Path
 from telegram import Update
 from zoneinfo import ZoneInfo
 import os, dateparser, asyncio
+from sqlalchemy import text
 
 from app.db import engine, SessionLocal, Base
 from app.models import Task, User
@@ -41,20 +42,21 @@ async def home(request: Request):
         return RedirectResponse(url="/dashboard")
     return RedirectResponse(url="/login")
 
+# ✅ Fix all template responses like this:
 @app.get("/login", response_class=HTMLResponse)
 async def login_page(request: Request):
-    return templates.TemplateResponse("login.html", {"request": request})
+    return templates.TemplateResponse(name="login.html", request=request)
 
 @app.get("/register", response_class=HTMLResponse)
 async def register_page(request: Request):
-    return templates.TemplateResponse("register.html", {"request": request})
+    return templates.TemplateResponse(name="register.html", request=request)
 
 @app.get("/dashboard", response_class=HTMLResponse)
 async def dashboard(request: Request):
     token = request.cookies.get("access_token")
     if not token:
         return RedirectResponse(url="/login")
-    return templates.TemplateResponse("index.html", {"request": request, "title": "AI Reminder Bot"})
+    return templates.TemplateResponse(name="index.html", request=request)
 
 # ─── Auth Endpoints ───────────────────────────────────────────────────────────
 
@@ -224,6 +226,14 @@ async def delete_task(
 @app.on_event("startup")
 async def start_services():
     Base.metadata.create_all(bind=engine)
+
+    with engine.connect() as conn:
+        conn.execute(text("ALTER TABLE tasks ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id)"))
+        conn.execute(text("ALTER TABLE tasks ADD COLUMN IF NOT EXISTS is_recurring BOOLEAN DEFAULT FALSE"))
+        conn.execute(text("ALTER TABLE tasks ADD COLUMN IF NOT EXISTS recur_type VARCHAR"))
+        conn.execute(text("ALTER TABLE tasks ADD COLUMN IF NOT EXISTS recur_value VARCHAR"))
+        conn.commit()
+
     set_main_loop(asyncio.get_event_loop())
     start_scheduler()
     asyncio.create_task(start_telegram_bot_background())
