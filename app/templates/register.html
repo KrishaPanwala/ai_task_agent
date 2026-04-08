@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Register — AI Reminder Bot</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body>
+<div class="auth-container">
+    <div class="auth-box">
+        <div class="auth-header">
+            <h1>🤖 AI Reminder Bot</h1>
+            <p>Create your account</p>
+        </div>
+        <div id="error-msg" class="error-msg" style="display:none"></div>
+        <div id="success-msg" class="success-msg" style="display:none"></div>
+        <div class="form-group">
+            <label>Username</label>
+            <input type="text" id="username" placeholder="Choose a username">
+        </div>
+        <div class="form-group">
+            <label>Password</label>
+            <input type="password" id="password" placeholder="Choose a password">
+        </div>
+        <div class="form-group">
+            <label>Telegram Chat ID <span style="opacity:0.6;font-size:0.85rem">(optional, can set later)</span></label>
+            <input type="text" id="chat_id" placeholder="e.g. 123456789">
+            <small>Send /start to your bot to get your Chat ID</small>
+        </div>
+        <button onclick="register()" class="auth-btn" id="registerBtn">Register</button>
+        <p class="auth-link">Already have an account? <a href="/login">Login</a></p>
+    </div>
+</div>
+<script>
+async function register() {
+    const username = document.getElementById("username").value.trim();
+    const password = document.getElementById("password").value.trim();
+    const chat_id = document.getElementById("chat_id").value.trim();
+    const errorMsg = document.getElementById("error-msg");
+    const successMsg = document.getElementById("success-msg");
+    const btn = document.getElementById("registerBtn");
+
+    errorMsg.style.display = "none";
+    successMsg.style.display = "none";
+
+    if (!username || !password) {
+        errorMsg.textContent = "⚠️ Username and password are required";
+        errorMsg.style.display = "block";
+        return;
+    }
+
+    btn.textContent = "Registering...";
+    btn.disabled = true;
+
+    const form = new FormData();
+    form.append("username", username);
+    form.append("password", password);
+    if (chat_id) form.append("chat_id", chat_id);
+
+    const res = await fetch("/register", { method: "POST", body: form });
+    const data = await res.json();
+
+    if (data.error) {
+        errorMsg.textContent = "❌ " + data.error;
+        errorMsg.style.display = "block";
+        btn.textContent = "Register";
+        btn.disabled = false;
+    } else {
+        successMsg.textContent = "✅ Registered! Redirecting to login...";
+        successMsg.style.display = "block";
+        setTimeout(() => window.location.href = "/login", 1500);
+    }
+}
+</script>
+</body>
+</html>
