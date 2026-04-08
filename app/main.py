@@ -15,6 +15,7 @@ from app.scheduler import start_scheduler, set_main_loop
 from app.telegram_bot_runner import start_telegram_bot_background
 from app.telegram import send_telegram_message
 from app.telegram_bot import application as telegram_app
+from zoneinfo import ZoneInfo
 
 app = FastAPI()
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True,
@@ -86,6 +87,8 @@ async def extract(message: str = Query(...)):
         pass
     return {"status": "task added"}
 
+IST = ZoneInfo("Asia/Kolkata")
+
 @app.get("/tasks")
 async def get_tasks():
     db = SessionLocal()
@@ -94,7 +97,8 @@ async def get_tasks():
         {
             "id": t.id,
             "task": t.task,
-            "time": t.time.strftime("%d %b %Y at %I:%M %p"),
+            # ✅ Convert UTC → IST before formatting
+            "time": t.time.astimezone(IST).strftime("%d %b %Y at %I:%M %p"),
             "is_recurring": t.is_recurring,
             "recur_type": t.recur_type,
             "recur_value": t.recur_value
