@@ -8,7 +8,6 @@ from pathlib import Path
 from telegram import Update
 from zoneinfo import ZoneInfo
 import os, dateparser, asyncio
-from sqlalchemy import text
 
 from app.db import engine, SessionLocal, Base
 from app.models import Task, User
@@ -17,11 +16,9 @@ from app.scheduler import start_scheduler, set_main_loop
 from app.telegram_bot_runner import start_telegram_bot_background
 from app.telegram import send_telegram_message
 from app.telegram_bot import application as telegram_app
-from app.auth import (
-    get_db, get_current_user, hash_password,
-    verify_password, create_token
-)
+from app.auth import get_db, get_current_user, hash_password, verify_password, create_token
 from sqlalchemy.orm import Session
+from sqlalchemy import text
 
 IST = ZoneInfo("Asia/Kolkata")
 
@@ -42,7 +39,6 @@ async def home(request: Request):
         return RedirectResponse(url="/dashboard")
     return RedirectResponse(url="/login")
 
-# ✅ Fix all template responses like this:
 @app.get("/login", response_class=HTMLResponse)
 async def login_page(request: Request):
     return templates.TemplateResponse(name="login.html", request=request)
@@ -67,9 +63,17 @@ async def register(
     chat_id: str = Form(None),
     db: Session = Depends(get_db)
 ):
+    if len(username) < 3:
+        return JSONResponse({"error": "Username must be at least 3 characters"}, status_code=400)
+    if len(password) < 6:
+        return JSONResponse({"error": "Password must be at least 6 characters"}, status_code=400)
+    if len(password) > 72:
+        return JSONResponse({"error": "Password must be less than 72 characters"}, status_code=400)
+
     existing = db.query(User).filter(User.username == username).first()
     if existing:
         return JSONResponse({"error": "Username already exists"}, status_code=400)
+
     user = User(
         username=username,
         password=hash_password(password),
@@ -225,12 +229,11 @@ async def delete_task(
 
 @app.on_event("startup")
 async def start_services():
-    # ✅ Step 1 — Create all new tables first (users table)
+    # ✅ Step 1 — Create all new tables first
     Base.metadata.create_all(bind=engine)
     print("✅ Tables created")
 
     # ✅ Step 2 — Add missing columns to existing tables
-    from sqlalchemy import text
     with engine.connect() as conn:
         conn.execute(text("ALTER TABLE tasks ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id)"))
         conn.execute(text("ALTER TABLE tasks ADD COLUMN IF NOT EXISTS is_recurring BOOLEAN DEFAULT FALSE"))

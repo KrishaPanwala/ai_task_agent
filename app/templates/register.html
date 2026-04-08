@@ -16,11 +16,12 @@
         <div id="success-msg" class="success-msg" style="display:none"></div>
         <div class="form-group">
             <label>Username</label>
-            <input type="text" id="username" placeholder="Choose a username">
+            <input type="text" id="username" placeholder="Choose a username (min 3 chars)">
         </div>
         <div class="form-group">
             <label>Password</label>
-            <input type="password" id="password" placeholder="Choose a password">
+            <input type="password" id="password" placeholder="Choose a password (6-72 chars)" maxlength="72">
+            <small>Must be between 6 and 72 characters</small>
         </div>
         <div class="form-group">
             <label>Telegram Chat ID <span style="opacity:0.6;font-size:0.85rem">(optional, can set later)</span></label>
@@ -48,6 +49,21 @@ async function register() {
         errorMsg.style.display = "block";
         return;
     }
+    if (username.length < 3) {
+        errorMsg.textContent = "⚠️ Username must be at least 3 characters";
+        errorMsg.style.display = "block";
+        return;
+    }
+    if (password.length < 6) {
+        errorMsg.textContent = "⚠️ Password must be at least 6 characters";
+        errorMsg.style.display = "block";
+        return;
+    }
+    if (password.length > 72) {
+        errorMsg.textContent = "⚠️ Password must be less than 72 characters";
+        errorMsg.style.display = "block";
+        return;
+    }
 
     btn.textContent = "Registering...";
     btn.disabled = true;
@@ -71,6 +87,10 @@ async function register() {
         setTimeout(() => window.location.href = "/login", 1500);
     }
 }
+
+document.addEventListener("keypress", e => {
+    if (e.key === "Enter") register();
+});
 </script>
 </body>
 </html>
