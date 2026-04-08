@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 from jose import JWTError, jwt
 from passlib.context import CryptContext
-from fastapi import Depends, HTTPException, status, Request
+from fastapi import Depends, HTTPException, Request
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 from app.db import SessionLocal
@@ -14,7 +14,13 @@ SECRET_KEY = os.getenv("SECRET_KEY", "your-super-secret-key-change-this")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_DAYS = 7
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# ✅ Fix — use sha256_crypt as fallback to avoid bcrypt bug
+pwd_context = CryptContext(
+    schemes=["bcrypt"],
+    deprecated="auto",
+    bcrypt__rounds=12
+)
+
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 
 def get_db():
@@ -25,10 +31,10 @@ def get_db():
         db.close()
 
 def hash_password(password: str) -> str:
-    return pwd_context.hash(password)
+    return pwd_context.hash(password[:72])  # ✅ truncate to 72 bytes
 
 def verify_password(plain: str, hashed: str) -> bool:
-    return pwd_context.verify(plain, hashed)
+    return pwd_context.verify(plain[:72], hashed)  # ✅ truncate to 72 bytes
 
 def create_token(data: dict) -> str:
     expire = datetime.now(ZoneInfo("Asia/Kolkata")) + timedelta(days=ACCESS_TOKEN_EXPIRE_DAYS)
