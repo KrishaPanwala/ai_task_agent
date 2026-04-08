@@ -27,7 +27,7 @@ async def start(update, context):
         f"_Remind me to drink water at 5pm_",
         parse_mode="Markdown"
     )
-    
+
 async def list_tasks(update, context):
     chat_id = str(update.message.chat_id)
     db = SessionLocal()
@@ -131,10 +131,17 @@ async def handle_message(update, context):
         return
 
     db = SessionLocal()
+
+    # ✅ Find user by chat_id to link user_id
+    from app.models import User
+    user = db.query(User).filter(User.chat_id == str(chat_id)).first()
+    user_id = user.id if user else None
+
     new_task = Task(
         task=result["task"],
         time=parsed_time,
         chat_id=str(chat_id),
+        user_id=user_id,  # ✅ link to web user
         is_recurring=result.get("is_recurring", False),
         recur_type=result.get("recur_type", None),
         recur_value=result.get("recur_value", None)
