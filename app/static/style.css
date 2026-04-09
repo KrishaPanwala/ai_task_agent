@@ -319,3 +319,307 @@
         flex-direction: column;
     }
 }
+/* ── Tabs ── */
+.tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
+    background: white;
+    padding: 8px;
+    border-radius: 16px;
+    box-shadow: 0 2px 12px rgba(100,100,255,0.07);
+}
+
+.tab-btn {
+    flex: 1;
+    padding: 10px 16px;
+    border: none;
+    border-radius: 10px;
+    font-size: 0.88rem;
+    font-weight: 600;
+    cursor: pointer;
+    background: transparent;
+    color: #888;
+    transition: all 0.2s;
+}
+
+.tab-btn:hover { background: #f0f4ff; color: #7c7cff; }
+.tab-btn.active { background: linear-gradient(135deg, #7c7cff, #a855f7); color: white; box-shadow: 0 4px 12px rgba(124,124,255,0.3); }
+
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+
+/* ── Today Planner ── */
+.time-slot {
+    background: white;
+    border-radius: 12px;
+    padding: 12px 16px;
+    margin-bottom: 8px;
+    box-shadow: 0 2px 8px rgba(100,100,255,0.06);
+    border-left: 4px solid #e8e8f0;
+}
+
+.time-slot.current {
+    border-left-color: #7c7cff;
+    background: #f8f7ff;
+    box-shadow: 0 4px 15px rgba(124,124,255,0.12);
+}
+
+.time-slot.past { opacity: 0.5; border-left-color: #ddd; }
+
+.slot-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.slot-time {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #555;
+    min-width: 80px;
+}
+
+.now-badge {
+    background: #7c7cff;
+    color: white;
+    font-size: 0.68rem;
+    padding: 2px 8px;
+    border-radius: 20px;
+    font-weight: 700;
+    letter-spacing: 1px;
+}
+
+.slot-add-btn {
+    margin-left: auto;
+    background: #f0f4ff;
+    color: #7c7cff;
+    border: none;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 1.1rem;
+    font-weight: 700;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.slot-add-btn:hover { background: #7c7cff; color: white; }
+
+.slot-task {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #f8f7ff;
+    border-radius: 8px;
+    padding: 8px 12px;
+    margin-top: 8px;
+    border-left: 3px solid #7c7cff;
+}
+
+.slot-task.recurring { border-left-color: #ed8936; background: #fffaf0; }
+
+.slot-task-time {
+    font-size: 0.75rem;
+    color: #7c7cff;
+    font-weight: 700;
+    min-width: 60px;
+}
+
+.slot-task-name {
+    font-size: 0.88rem;
+    color: #333;
+    font-weight: 500;
+    flex: 1;
+}
+
+.slot-delete {
+    background: none;
+    border: none;
+    color: #ccc;
+    cursor: pointer;
+    font-size: 0.85rem;
+    padding: 2px 6px;
+    border-radius: 4px;
+    transition: all 0.2s;
+}
+
+.slot-delete:hover { background: #fff0f0; color: #e53e3e; }
+
+.slot-input-box {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.slot-input-box input {
+    flex: 1;
+    padding: 8px 12px;
+    border: 2px solid #e8e8f0;
+    border-radius: 10px;
+    font-size: 0.88rem;
+    outline: none;
+    min-width: 150px;
+    transition: border 0.2s;
+}
+
+.slot-input-box input:focus { border-color: #7c7cff; }
+
+.slot-input-box button {
+    padding: 8px 16px;
+    background: linear-gradient(135deg, #7c7cff, #a855f7);
+    color: white;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.cancel-btn {
+    background: #f0f0f0 !important;
+    color: #888 !important;
+    box-shadow: none !important;
+}
+
+/* ── Weekly Planner ── */
+.weekly-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 8px;
+}
+
+.week-day {
+    background: white;
+    border-radius: 14px;
+    padding: 12px 10px;
+    box-shadow: 0 2px 8px rgba(100,100,255,0.06);
+    border-top: 3px solid #e8e8f0;
+    min-height: 150px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.week-day.today {
+    border-top-color: #7c7cff;
+    background: #f8f7ff;
+    box-shadow: 0 4px 15px rgba(124,124,255,0.12);
+}
+
+.week-day-header {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    margin-bottom: 6px;
+}
+
+.week-day-name {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.week-day-date {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #333;
+}
+
+.today-dot {
+    width: 6px;
+    height: 6px;
+    background: #7c7cff;
+    border-radius: 50%;
+    margin-top: 2px;
+}
+
+.week-day-tasks {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.no-tasks {
+    font-size: 0.72rem;
+    color: #ccc;
+    text-align: center;
+    margin-top: 10px;
+}
+
+.week-task {
+    background: #f0f4ff;
+    border-radius: 6px;
+    padding: 5px 7px;
+    border-left: 3px solid #7c7cff;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    position: relative;
+}
+
+.week-task.recurring { border-left-color: #ed8936; background: #fffaf0; }
+
+.week-task-time {
+    font-size: 0.68rem;
+    color: #7c7cff;
+    font-weight: 700;
+}
+
+.week-task-name {
+    font-size: 0.75rem;
+    color: #333;
+    font-weight: 500;
+    word-break: break-word;
+}
+
+.week-task-delete {
+    position: absolute;
+    top: 3px;
+    right: 3px;
+    background: none;
+    border: none;
+    color: #ccc;
+    cursor: pointer;
+    font-size: 0.7rem;
+    padding: 1px 4px;
+    border-radius: 3px;
+    transition: all 0.2s;
+}
+
+.week-task-delete:hover { background: #fff0f0; color: #e53e3e; }
+
+.week-add-btn {
+    background: #f0f4ff;
+    color: #7c7cff;
+    border: none;
+    padding: 6px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.78rem;
+    font-weight: 600;
+    width: 100%;
+    transition: all 0.2s;
+    margin-top: auto;
+}
+
+.week-add-btn:hover { background: #7c7cff; color: white; }
+
+/* ── Responsive ── */
+@media (max-width: 700px) {
+    .weekly-grid { grid-template-columns: repeat(3, 1fr); }
+}
+
+@media (max-width: 450px) {
+    .weekly-grid { grid-template-columns: repeat(2, 1fr); }
+    .tabs { flex-direction: column; }
+}
