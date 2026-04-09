@@ -1,6 +1,6 @@
 # app/main.py
 from fastapi import FastAPI, Request, Query, Depends, Form
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
@@ -105,8 +105,13 @@ async def login(
 
 @app.post("/logout")
 async def logout():
-    response = RedirectResponse(url="/login", status_code=302)
-    response.delete_cookie("access_token")
+    response = JSONResponse({"status": "logged out"})
+    response.delete_cookie(
+        key="access_token",
+        httponly=True,
+        samesite="lax",
+        path="/"  # ✅ must specify path
+    )
     return response
 
 @app.get("/me")
