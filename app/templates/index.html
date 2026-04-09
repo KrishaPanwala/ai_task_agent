@@ -4,9 +4,12 @@
     <title>AI Reminder Dashboard</title>
     <link rel="stylesheet" href="/static/style.css">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#7c7cff">
 </head>
 <body>
 <div class="container">
+
+    <!-- Header -->
     <div class="header">
         <div>
             <h1>🤖 AI Reminder Bot</h1>
@@ -18,7 +21,7 @@
         </div>
     </div>
 
-    <!-- Chat ID warning -->
+    <!-- Chat ID Warning -->
     <div id="chatIdWarning" class="warning-box" style="display:none">
         ⚠️ Your Telegram Chat ID is not set!
         <input type="text" id="chatIdInput" placeholder="Enter your Telegram Chat ID">
@@ -26,15 +29,17 @@
         <small>Send /start to your bot → it will show your Chat ID</small>
     </div>
 
+    <!-- Input Box -->
     <div class="input-box">
         <input type="text" id="taskInput"
-            placeholder="Remind me to drink water every day at 8am"
+            placeholder="Remind me to wakeup every day at 8am"
             onkeypress="if(event.key==='Enter') addTask()">
         <button onclick="addTask()" id="addBtn">
-            <span id="btnText">Add Reminder</span>
+            <span id="btnText">➕ Add Reminder</span>
         </button>
     </div>
 
+    <!-- Stats -->
     <div class="stats">
         <div class="stat-card">
             <span id="totalCount">0</span>
@@ -54,12 +59,40 @@
         </div>
     </div>
 
-    <div class="section-header">
-        <h2>📋 Your Reminders</h2>
-        <button onclick="loadTasks()" class="refresh-btn">🔄 Refresh</button>
+    <!-- Tabs -->
+    <div class="tabs">
+        <button class="tab-btn active" onclick="switchTab('all')">📋 All Reminders</button>
+        <button class="tab-btn" onclick="switchTab('today')">📅 Today</button>
+        <button class="tab-btn" onclick="switchTab('weekly')">🗓️ Weekly</button>
     </div>
 
-    <div id="taskList"></div>
+    <!-- Tab 1: All Reminders -->
+    <div id="tab-all" class="tab-content active">
+        <div class="section-header">
+            <h2>📋 All Reminders</h2>
+            <button onclick="loadTasks()" class="refresh-btn">🔄 Refresh</button>
+        </div>
+        <div id="taskList"></div>
+    </div>
+
+    <!-- Tab 2: Today -->
+    <div id="tab-today" class="tab-content">
+        <div class="section-header">
+            <h2 id="todayTitle">📅 Today</h2>
+            <button onclick="renderToday()" class="refresh-btn">🔄 Refresh</button>
+        </div>
+        <div id="todayPlanner"></div>
+    </div>
+
+    <!-- Tab 3: Weekly -->
+    <div id="tab-weekly" class="tab-content">
+        <div class="section-header">
+            <h2>🗓️ Weekly Planner</h2>
+            <button onclick="renderWeekly()" class="refresh-btn">🔄 Refresh</button>
+        </div>
+        <div id="weeklyPlanner"></div>
+    </div>
+
 </div>
 
 <script src="/static/script.js"></script>
