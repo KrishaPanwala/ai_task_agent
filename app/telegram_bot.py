@@ -86,30 +86,54 @@ async def handle_snooze(update, context):
     data = query.data
     db = SessionLocal()
 
-    if data.startswith("done_"):
-        await query.edit_message_text("✅ Reminder marked as done!")
+    try:
+        if data.startswith("done_"):
+            task_id = int(data.split("_")[1])
+            task = db.query(Task).filter(Task.id == task_id).first()
+            if task:
+                db.delete(task)
+                db.commit()
+            await query.edit_message_text("✅ Reminder marked as done!")
 
-    elif data.startswith("snooze_"):
-        parts = data.split("_")
-        minutes = int(parts[1])
+        elif data.startswith("snooze_"):
+            parts = data.split("_")
+            minutes = int(parts[1])
+            task_id = int(parts[2])
 
-        new_time = datetime.now(IST) + timedelta(minutes=minutes)
-        task_text = query.message.text.split("📌 ")[-1].split("\n")[0].strip()
+            # ✅ Fetch original task from DB — don't parse message text
+            original_task = db.query(Task).filter(Task.id == task_id).first()
+            if not original_task:
+                await query.edit_message_text("❌ Reminder not found.")
+                return
 
-        new_task = Task(
-            task=task_text,
-            time=new_time,
-            chat_id=str(query.message.chat_id),
-            is_recurring=False
-        )
-        db.add(new_task)
-        db.commit()
-        await query.edit_message_text(
-            f"⏰ Snoozed for {minutes} minute(s)!\n"
-            f"New reminder at: {new_time.strftime('%d %b %Y at %I:%M %p')}"
-        )
+            new_time = datetime.now(IST) + timedelta(minutes=minutes)
 
-    db.close()
+            # ✅ Create snoozed task WITH user_id so web dashboard can see it
+            new_task = Task(
+                task=original_task.task,
+                time=new_time,
+                chat_id=original_task.chat_id,
+                user_id=original_task.user_id,   # ✅ fix 1: carry over user_id
+                is_recurring=False,
+                recur_type=None,
+                recur_value=None
+            )
+            db.add(new_task)
+
+            # ✅ Delete original task so scheduler doesn't fire it again
+            db.delete(original_task)            # ✅ fix 3: remove old task
+            db.commit()
+
+            await query.edit_message_text(
+                f"⏰ Snoozed for {minutes} minute(s)!\n"
+                f"New reminder at: {new_time.strftime('%d %b %Y at %I:%M %p')}"
+            )
+
+    except Exception as e:
+        print(f"❌ Snooze error: {e}")
+        await query.edit_message_text("❌ Something went wrong.")
+    finally:
+        db.close()
 
 async def handle_message(update, context):
     user_message = update.message.text
