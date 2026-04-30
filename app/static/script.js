@@ -3,13 +3,13 @@ let allTasks = [];
 let currentTab = 'all';
 
 // ─── Utilities ───────────────────────────────────────────────────────────────
-function parseTaskTime(timeStr) {
-    const cleaned = timeStr.replace(" at ", " ");
-    return new Date(cleaned);
+function parseTaskTime(task) {
+    // ✅ Use ISO string if available — parses correctly in all browsers
+    return task.time_iso ? new Date(task.time_iso) : new Date(task.time.replace(" at ", " "));
 }
 
-function getCountdown(timeStr) {
-    const date = parseTaskTime(timeStr);
+function getCountdown(task) {
+    const date = parseTaskTime(task);
     const now = new Date();
     const diff = date - now;
     if (isNaN(diff)) return { text: "", overdue: false };
@@ -112,7 +112,7 @@ function updateStats() {
     const now = new Date();
     let overdue = 0, upcoming = 0, recurring = 0;
     allTasks.forEach(t => {
-        const d = parseTaskTime(t.time);
+        const d = parseTaskTime(t);
         if (isNaN(d)) return;
         if (d < now) overdue++;
         else upcoming++;
@@ -132,7 +132,6 @@ async function addTask(prefillTime = null) {
 
     if (!message) { showToast("⚠️ Please enter a reminder!"); return; }
 
-    // If adding from time slot, append time to message
     if (prefillTime) {
         message = `${message} at ${prefillTime}`;
     }
@@ -185,7 +184,7 @@ async function loadTasks() {
 
     taskList.innerHTML = "";
     allTasks.forEach(task => {
-        const countdown = getCountdown(task.time);
+        const countdown = getCountdown(task);  // ✅ pass whole task object
         const cardClass = countdown.overdue ? "overdue" : task.is_recurring ? "recurring" : "upcoming";
         let badges = `<span class="badge ${cardClass}">${countdown.overdue ? "⚠️ Overdue" : task.is_recurring ? "🔁 Recurring" : "✅ Upcoming"}</span>`;
         if (task.is_recurring && task.recur_type) {
@@ -213,36 +212,25 @@ async function renderToday() {
     const now = new Date();
     const today = now;
 
-    // Update title
     document.getElementById("todayTitle").textContent =
         `📅 ${today.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}`;
 
-    // Filter today's tasks
-    const todayTasks = allTasks.filter(t => {
-        const d = parseTaskTime(t.time);
-        return isSameDay(d, today);
-    });
+    // ✅ Use parseTaskTime(task) with full task object for correct IST comparison
+    const todayTasks = allTasks.filter(t => isSameDay(parseTaskTime(t), today));
 
     planner.innerHTML = "";
 
-    // Hours from 6 AM to 11 PM
     for (let h = 6; h <= 23; h++) {
-        const slotTime = new Date(today);
-        slotTime.setHours(h, 0, 0, 0);
         const isCurrentHour = now.getHours() === h;
         const isPast = now.getHours() > h;
 
-        // Find tasks in this hour slot
-        const slotTasks = todayTasks.filter(t => {
-            const d = parseTaskTime(t.time);
-            return d.getHours() === h;
-        });
+        const slotTasks = todayTasks.filter(t => parseTaskTime(t).getHours() === h);
 
         const slotClass = isCurrentHour ? "time-slot current" : isPast ? "time-slot past" : "time-slot";
 
         let tasksHtml = "";
         slotTasks.forEach(task => {
-            const d = parseTaskTime(task.time);
+            const d = parseTaskTime(task);
             const timeStr = d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
             tasksHtml += `
                 <div class="slot-task ${task.is_recurring ? 'recurring' : ''}">
@@ -253,12 +241,10 @@ async function renderToday() {
                 </div>`;
         });
 
-        // Inline add form for this slot
-        const slotId = `slot-${h}`;
         const formattedHour = formatHour(h);
 
         planner.innerHTML += `
-            <div class="${slotClass}" id="${slotId}">
+            <div class="${slotClass}" id="slot-${h}">
                 <div class="slot-header">
                     <span class="slot-time">${formattedHour}</span>
                     ${isCurrentHour ? '<span class="now-badge">NOW</span>' : ''}
@@ -329,7 +315,6 @@ async function renderWeekly() {
 
     const now = new Date();
     const startOfWeek = new Date(now);
-    // Start from Monday
     const day = now.getDay();
     const diff = day === 0 ? -6 : 1 - day;
     startOfWeek.setDate(now.getDate() + diff);
@@ -348,7 +333,8 @@ async function renderWeekly() {
         <div class="weekly-grid">
             ${days.map((d, i) => {
                 const isToday = isSameDay(d, now);
-                const dayTasks = allTasks.filter(t => isSameDay(parseTaskTime(t.time), d));
+                // ✅ Use parseTaskTime(t) with full task object
+                const dayTasks = allTasks.filter(t => isSameDay(parseTaskTime(t), d));
                 const dateStr = d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
 
                 return `
@@ -362,7 +348,7 @@ async function renderWeekly() {
                             ${dayTasks.length === 0
                                 ? '<div class="no-tasks">No tasks</div>'
                                 : dayTasks.map(t => {
-                                    const td = parseTaskTime(t.time);
+                                    const td = parseTaskTime(t);
                                     const timeStr = td.toLocaleTimeString('en-IN', {
                                         hour: '2-digit', minute: '2-digit', hour12: true
                                     });
