@@ -15,9 +15,7 @@ def set_main_loop(loop):
     main_loop = loop
 
 def next_recur_time(task):
-    now = datetime.now(IST)
     if task.recur_type == "daily":
-        # Same time tomorrow
         return task.time + timedelta(days=1)
     elif task.recur_type == "hourly":
         return task.time + timedelta(hours=1)
@@ -35,19 +33,21 @@ def check_tasks():
             db = SessionLocal()
             now = datetime.now(IST)
             tasks = db.query(Task).filter(Task.time <= now).all()
+
             for task in tasks:
+                # ✅ Encode task text in callback_data so snooze works even after deletion
+                safe_task_text = task.task[:40].replace("_", " ")  # trim + sanitize
+                user_id_str = str(task.user_id) if task.user_id else "none"
+
                 keyboard = InlineKeyboardMarkup([
                     [
                         InlineKeyboardButton("✅ Done", callback_data=f"done_{task.id}"),
-                        InlineKeyboardButton("⏰ 10 min", callback_data=f"snooze_10_{task.id}"),
-                        InlineKeyboardButton("⏰ 1 hr", callback_data=f"snooze_60_{task.id}"),
+                        InlineKeyboardButton("⏰ 10 min", callback_data=f"snooze_10_{task.id}_{user_id_str}_{safe_task_text}"),
+                        InlineKeyboardButton("⏰ 1 hr",  callback_data=f"snooze_60_{task.id}_{user_id_str}_{safe_task_text}"),
                     ]
                 ])
 
-                # ✅ Add recurring label
-                recur_label = ""
-                if task.is_recurring:
-                    recur_label = f"\n🔁 Recurring: {task.recur_type}"
+                recur_label = f"\n🔁 Recurring: {task.recur_type}" if task.is_recurring else ""
 
                 asyncio.run_coroutine_threadsafe(
                     telegram_app.bot.send_message(
@@ -59,7 +59,6 @@ def check_tasks():
                     main_loop
                 )
 
-                # ✅ If recurring, create next occurrence instead of deleting
                 if task.is_recurring:
                     next_time = next_recur_time(task)
                     if next_time:
@@ -67,6 +66,7 @@ def check_tasks():
                             task=task.task,
                             time=next_time,
                             chat_id=task.chat_id,
+                            user_id=task.user_id,
                             is_recurring=True,
                             recur_type=task.recur_type,
                             recur_value=task.recur_value
@@ -75,6 +75,7 @@ def check_tasks():
 
                 db.delete(task)
                 db.commit()
+
             db.close()
         except Exception as e:
             print("❌ Scheduler error:", e)

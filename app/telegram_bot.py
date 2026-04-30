@@ -7,7 +7,7 @@ from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, Cal
 from app.config import TELEGRAM_BOT_TOKEN
 from app.ai import extract_task
 from app.db import SessionLocal
-from app.models import Task
+from app.models import Task, User
 
 IST = ZoneInfo("Asia/Kolkata")
 
@@ -86,30 +86,58 @@ async def handle_snooze(update, context):
     data = query.data
     db = SessionLocal()
 
-    if data.startswith("done_"):
-        await query.edit_message_text("✅ Reminder marked as done!")
+    try:
+        if data.startswith("done_"):
+            # Try to delete if still exists (e.g. user taps Done before scheduler fires)
+            task_id = int(data.split("_")[1])
+            task = db.query(Task).filter(Task.id == task_id).first()
+            if task:
+                db.delete(task)
+                db.commit()
+            await query.edit_message_text("✅ Reminder marked as done!")
 
-    elif data.startswith("snooze_"):
-        parts = data.split("_")
-        minutes = int(parts[1])
+        elif data.startswith("snooze_"):
+            # Format: snooze_{minutes}_{task_id}_{user_id}_{task_text}
+            parts = data.split("_", 4)  # max 5 parts, task text may have underscores
+            minutes   = int(parts[1])
+            task_id   = int(parts[2])
+            user_id_str = parts[3]
+            task_text = parts[4] if len(parts) > 4 else "Reminder"
 
-        new_time = datetime.now(IST) + timedelta(minutes=minutes)
-        task_text = query.message.text.split("📌 ")[-1].split("\n")[0].strip()
+            user_id = int(user_id_str) if user_id_str != "none" else None
+            new_time = datetime.now(IST) + timedelta(minutes=minutes)
 
-        new_task = Task(
-            task=task_text,
-            time=new_time,
-            chat_id=str(query.message.chat_id),
-            is_recurring=False
-        )
-        db.add(new_task)
-        db.commit()
-        await query.edit_message_text(
-            f"⏰ Snoozed for {minutes} minute(s)!\n"
-            f"New reminder at: {new_time.strftime('%d %b %Y at %I:%M %p')}"
-        )
+            # Try to get chat_id from original task (may still exist if user taps fast)
+            original = db.query(Task).filter(Task.id == task_id).first()
+            chat_id = original.chat_id if original else str(query.message.chat_id)
 
-    db.close()
+            # ✅ If original still exists in DB, delete it to avoid double firing
+            if original:
+                db.delete(original)
+
+            # ✅ Create snoozed task with all fields intact
+            new_task = Task(
+                task=task_text,
+                time=new_time,
+                chat_id=chat_id,
+                user_id=user_id,        # ✅ web dashboard can see it
+                is_recurring=False,
+                recur_type=None,
+                recur_value=None
+            )
+            db.add(new_task)
+            db.commit()
+
+            await query.edit_message_text(
+                f"⏰ Snoozed for {minutes} minute(s)!\n"
+                f"New reminder at: {new_time.strftime('%d %b %Y at %I:%M %p')}"
+            )
+
+    except Exception as e:
+        print(f"❌ Snooze error: {e}")
+        await query.edit_message_text("❌ Something went wrong.")
+    finally:
+        db.close()
 
 async def handle_message(update, context):
     user_message = update.message.text
@@ -132,8 +160,6 @@ async def handle_message(update, context):
 
     db = SessionLocal()
 
-    # ✅ Find user by chat_id to link user_id
-    from app.models import User
     user = db.query(User).filter(User.chat_id == str(chat_id)).first()
     user_id = user.id if user else None
 
@@ -141,7 +167,7 @@ async def handle_message(update, context):
         task=result["task"],
         time=parsed_time,
         chat_id=str(chat_id),
-        user_id=user_id,  # ✅ link to web user
+        user_id=user_id,
         is_recurring=result.get("is_recurring", False),
         recur_type=result.get("recur_type", None),
         recur_value=result.get("recur_value", None)
