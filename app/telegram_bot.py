@@ -42,7 +42,8 @@ async def list_tasks(update, context):
     for task in tasks:
         recur_info = f"\n   🔁 Repeats: {task.recur_type}" if task.is_recurring else ""
         msg += f"🔹 *ID {task.id}* — {task.task}\n"
-        msg += f"   ⏰ {task.time.strftime('%d %b %Y at %I:%M %p')}{recur_info}\n\n"
+        task_time = task.time.replace(tzinfo=IST)  # reattach IST after DB fetch
+        msg += f"   ⏰ {task_time.strftime('%d %b %Y at %I:%M %p')}\n\n"
 
     await update.message.reply_text(msg, parse_mode="Markdown")
 

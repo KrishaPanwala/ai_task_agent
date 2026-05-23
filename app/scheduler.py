@@ -32,7 +32,9 @@ def check_tasks():
         try:
             db = SessionLocal()
             now = datetime.now(IST)
-            tasks = db.query(Task).filter(Task.time <= now).all()
+            now_naive = now.replace(tzinfo=None)
+
+            tasks = db.query(Task).filter(Task.time <= now_naive).all()
 
             for task in tasks:
                 # ✅ Encode task text in callback_data so snooze works even after deletion
