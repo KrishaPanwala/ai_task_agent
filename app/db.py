@@ -14,6 +14,7 @@ if DATABASE_URL.startswith("sqlite"):
 else:
     engine_args["pool_size"] = 10
     engine_args["max_overflow"] = 5
+    connect_args = {"sslmode": "require"}
 
 engine = create_engine(DATABASE_URL, connect_args=connect_args, **engine_args)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
