@@ -33,9 +33,9 @@ def format_conflict_warning(conflicts: list) -> str:
     if not conflicts:
         return ""
 
-    warning = f"\n\n⚠️ *Conflict detected!* You have {len(conflicts)} nearby reminder(s):\n"
+    warning = f"\n\n*Conflict detected!* You have {len(conflicts)} nearby reminder(s):\n"
     for c in conflicts:
         task_time = c.time.replace(tzinfo=IST)
-        warning += f"• {c.task} at {task_time.strftime('%I:%M %p')}\n"
+        warning += f"- {c.task} at {task_time.strftime('%I:%M %p')}\n"
     warning += "Consider rescheduling to avoid overlap."
     return warning
