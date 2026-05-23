@@ -7,6 +7,11 @@ def send_telegram_message(message, chat_id):
         return
     url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
     try:
-        requests.post(url, data={"chat_id": chat_id, "text": message})
+        response = requests.post(url, data={
+            "chat_id": chat_id,
+            "text": message,
+            "parse_mode": "Markdown"  # 👈 only line added
+        })
+        print(f"📤 Telegram response: {response.status_code} {response.text}")
     except Exception as e:
         print("❌ Telegram error:", e)
