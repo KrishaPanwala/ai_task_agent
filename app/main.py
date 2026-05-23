@@ -214,11 +214,11 @@ async def extract(
         if result.get("is_recurring"):
             recur_info = f"\n🔁 Repeats: {result.get('recur_type')}"
         send_telegram_message(
-            f"✅ Task Added\n\n{result['task']}\n⏰ {parsed_time.strftime('%d %b %Y at %I:%M %p')}{recur_info}",
-            current_user.chat_id
+        f"✅ Task Added\n\n{result['task']}\n⏰ {parsed_time.strftime('%d %b %Y at %I:%M %p')}{recur_info}{weather_warning}",
+        current_user.chat_id
         )
-    except:
-        pass
+    except Exception as e:
+        print(f"❌ Telegram send error: {e}")
 
     return {"status": "task added", "weather_warning": weather_warning}
 
