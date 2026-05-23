@@ -38,6 +38,7 @@ Return ONLY this JSON, no explanation, no markdown:
 
 Rules:
 - "time" must ALWAYS be a full datetime in this exact format: "YYYY-MM-DD HH:MM" (24hr)
+- If user mentions a SPECIFIC date (like "31st december", "june 20", "15th august"), use THAT exact date. Never change it.
 - If no date mentioned, assume today. If time already passed today, use tomorrow.
 - "every day/daily/everyday" → is_recurring=true, recur_type="daily"
 - "every hour" → is_recurring=true, recur_type="hourly"
