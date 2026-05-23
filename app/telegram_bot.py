@@ -165,6 +165,10 @@ async def handle_message(update, context):
         "TIMEZONE": "Asia/Kolkata",
         "TO_TIMEZONE": "Asia/Kolkata"
     })
+
+    print(f"⏰ parsed_time: {parsed_time}")  # 👈 add this
+    print(f"🕐 now IST: {datetime.now(IST)}")    
+    
     if not parsed_time:
         await update.message.reply_text("❌ Invalid time")
         return
