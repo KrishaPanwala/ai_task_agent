@@ -30,6 +30,8 @@ def is_outdoor_task(task_text: str) -> bool:
     """Check if task involves outdoor activity."""
     task_lower = task_text.lower()
     return any(keyword in task_lower for keyword in OUTDOOR_KEYWORDS)
+    print(f"🔍 is_outdoor_task('{task_text}') → {result}")  # 👈 add this
+    return result
 
 def get_weather_for_time(reminder_time: datetime, lat: float = 21.1702, lon: float = 72.8311) -> dict:
     """
@@ -37,6 +39,7 @@ def get_weather_for_time(reminder_time: datetime, lat: float = 21.1702, lon: flo
     Default coords: Surat, Gujarat (change to user's city or make dynamic)
     Returns dict with weather info or empty dict on failure.
     """
+    print(f"🌤️ Fetching weather for {reminder_time} at {lat},{lon}") 
     try:
         # format date for API
         date_str = reminder_time.strftime("%Y-%m-%d")
@@ -74,6 +77,8 @@ def get_weather_for_time(reminder_time: datetime, lat: float = 21.1702, lon: flo
         rain_chance = precip[idx]
         description = WEATHER_DESCRIPTIONS.get(code, "Unknown")
         is_bad = code in BAD_WEATHER_CODES
+
+        print(f"✅ Weather result: {code}, {temp}°C, {rain_chance}% rain")  
 
         return {
             "description": description,
