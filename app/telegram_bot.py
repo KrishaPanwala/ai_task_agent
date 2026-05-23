@@ -8,6 +8,7 @@ from app.config import TELEGRAM_BOT_TOKEN
 from app.ai import extract_task
 from app.db import SessionLocal
 from app.models import Task, User
+from app.memory import get_memory, update_memory
 
 IST = ZoneInfo("Asia/Kolkata")
 
@@ -143,8 +144,16 @@ async def handle_snooze(update, context):
 async def handle_message(update, context):
     user_message = update.message.text
     chat_id = update.message.chat_id
+    db = SessionLocal()
+    user = db.query(User).filter(User.chat_id == str(chat_id)).first()
+    user_id = user.id if user else None
+    db.close()
 
-    result = extract_task(user_message)
+    # 👇 load memory before AI call
+    memory = get_memory(user_id) if user_id else ""
+
+    result = extract_task(user_message, memory=memory)  # 👈 pass memory
+
     if "task" not in result or "time" not in result:
         await update.message.reply_text("❌ Could not understand task")
         return
@@ -176,6 +185,9 @@ async def handle_message(update, context):
     db.add(new_task)
     db.commit()
     db.close()
+
+    # 👇 update memory after saving
+    update_memory(user_id, result["task"], parsed_time.strftime("%d %b %Y at %I:%M %p"))
 
     recur_info = ""
     if result.get("is_recurring"):

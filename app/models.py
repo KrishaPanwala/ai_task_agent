@@ -1,7 +1,8 @@
 # app/models.py
-from sqlalchemy import Column, Integer, String, DateTime, Boolean, ForeignKey
+from sqlalchemy import Column, Integer, String, DateTime, Boolean, ForeignKey, Text
 from sqlalchemy.orm import relationship
 from app.db import Base
+from datetime import datetime
 
 class User(Base):
     __tablename__ = "users"
@@ -24,3 +25,11 @@ class Task(Base):
     is_recurring = Column(Boolean, default=False)
     recur_type = Column(String, nullable=True)
     recur_value = Column(String, nullable=True)
+
+class UserMemory(Base):
+    __tablename__ = "user_memory"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), unique=True, nullable=False)
+    memory = Column(Text, nullable=True)
+    updated_at = Column(DateTime(timezone=True), nullable=True)

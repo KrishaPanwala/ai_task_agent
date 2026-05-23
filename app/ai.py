@@ -24,13 +24,22 @@ def get_first_occurrence(target_weekday: int, hour: int, minute: int) -> datetim
     first = now + timedelta(days=days_ahead)
     return first.replace(hour=hour, minute=minute, second=0, microsecond=0)
 
-def extract_task(user_message: str) -> dict:
+def extract_task(user_message: str, memory: str = "") -> dict:  # 👈 added memory param
     now = datetime.now(IST)
     today_str = now.strftime("%A, %d %B %Y")
     current_time_str = now.strftime("%I:%M %p")
 
-    prompt = f"""Today is {today_str}. Current time is {current_time_str} IST.
+    # 👇 inject memory into prompt if available
+    memory_section = ""
+    if memory:
+        memory_section = f"""
+Known habits and preferences for this user:
+{memory}
+Use this to make smarter suggestions (e.g. if they usually set 7am reminders, and they say "morning", use 7am).
+"""
 
+    prompt = f"""Today is {today_str}. Current time is {current_time_str} IST.
+{memory_section}
 Extract task, time, and recurrence from: "{user_message}"
 
 Return ONLY this JSON, no explanation, no markdown:
@@ -39,7 +48,8 @@ Return ONLY this JSON, no explanation, no markdown:
 Rules:
 - "time" must ALWAYS be a full datetime in this exact format: "YYYY-MM-DD HH:MM" (24hr)
 - If user mentions a SPECIFIC date (like "31st december", "june 20", "15th august"), use THAT exact date. Never change it.
-- If no date mentioned, assume today. If time already passed today, use tomorrow.
+- Only if NO date is mentioned, assume today. If time already passed today, use tomorrow.
+- Current year is {now.year}. If the mentioned date has already passed this year, use next year.
 - "every day/daily/everyday" → is_recurring=true, recur_type="daily"
 - "every hour" → is_recurring=true, recur_type="hourly"
 - "every X minutes" → is_recurring=true, recur_type="interval", recur_value="X"
@@ -72,7 +82,6 @@ Rules:
             print(f"❌ Incomplete AI output: {data}")
             return {}
 
-        # ✅ Safety net for weekly reminders — never trust Groq's date math
         if data.get("recur_type") == "weekly" and data.get("recur_value"):
             day_name = data["recur_value"].lower().strip()
             if day_name in DAY_MAP:

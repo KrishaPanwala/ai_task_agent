@@ -20,6 +20,8 @@ from app.auth import get_db, get_current_user, hash_password, verify_password, c
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 
+from app.memory import get_memory, update_memory 
+
 IST = ZoneInfo("Asia/Kolkata")
 
 app = FastAPI()
@@ -159,7 +161,11 @@ async def extract(
     if not current_user.chat_id:
         return JSONResponse({"error": "Please set your Telegram Chat ID in profile"})
 
-    result = extract_task(message)
+    # 👇 load memory first
+    memory = get_memory(current_user.id)
+
+    # 👇 pass memory to AI
+    result = extract_task(message, memory=memory)
     if "task" not in result or "time" not in result:
         return JSONResponse({"error": "Could not extract task"})
 
@@ -185,6 +191,9 @@ async def extract(
     db.add(new_task)
     db.commit()
     db.close()
+
+    # update memory after saving
+    update_memory(current_user.id, result["task"], parsed_time.strftime("%d %b %Y at %I:%M %p"))
 
     try:
         recur_info = ""
@@ -245,8 +254,16 @@ async def start_services():
         conn.execute(text("ALTER TABLE tasks ADD COLUMN IF NOT EXISTS is_recurring BOOLEAN DEFAULT FALSE"))
         conn.execute(text("ALTER TABLE tasks ADD COLUMN IF NOT EXISTS recur_type VARCHAR"))
         conn.execute(text("ALTER TABLE tasks ADD COLUMN IF NOT EXISTS recur_value VARCHAR"))
+        conn.execute(text("""
+        CREATE TABLE IF NOT EXISTS user_memory (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER UNIQUE REFERENCES users(id),
+            memory TEXT,
+            updated_at TIMESTAMPTZ
+        )
+         """))                  
         conn.commit()
-    print("✅ Migrations done")
+    print("✅ Memory table created done")
 
     set_main_loop(asyncio.get_event_loop())
     start_scheduler()
