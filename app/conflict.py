@@ -18,6 +18,8 @@ def check_conflict(user_id: int, new_time: datetime, window_minutes: int = 15) -
     window_start = new_time_naive - timedelta(minutes=window_minutes)
     window_end = new_time_naive + timedelta(minutes=window_minutes)
 
+    print(f"🔍 Conflict check: user={user_id}, window={window_start} → {window_end}")  # 👈
+
     db = SessionLocal()
     conflicts = db.query(Task).filter(
         Task.user_id == user_id,
@@ -26,6 +28,7 @@ def check_conflict(user_id: int, new_time: datetime, window_minutes: int = 15) -
     ).all()
     db.close()
 
+    print(f"🔍 Conflicts found: {len(conflicts)} — {[c.task for c in conflicts]}")  # 👈
     return conflicts
 
 def format_conflict_warning(conflicts: list) -> str:
