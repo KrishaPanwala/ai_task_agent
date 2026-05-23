@@ -191,6 +191,7 @@ async def extract(
                 weather_warning += f", {weather['rain_chance']}% rain chance"
             if weather["is_bad"]:
                 weather_warning += f"\n⚠️ Bad weather expected! Consider rescheduling."
+                weather_warning += f"\n💡 Tip: Try early morning (5am) or evening (7pm) instead."
 
     db = SessionLocal()
     new_task = Task(
