@@ -121,7 +121,7 @@ async def handle_snooze(update, context):
             # ✅ Create snoozed task with all fields intact
             new_task = Task(
                 task=task_text,
-                time=new_time,
+                time=new_time.replace(tzinfo=None),
                 chat_id=chat_id,
                 user_id=user_id,        # ✅ web dashboard can see it
                 is_recurring=False,

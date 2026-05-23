@@ -231,8 +231,8 @@ async def get_tasks(current_user: User = Depends(get_current_user)):
         {
             "id": t.id,
             "task": t.task,
-            "time": t.time.astimezone(IST).strftime("%d %b %Y at %I:%M %p"),
-            "time_iso": t.time.astimezone(IST).isoformat(),  # ✅ add this
+            "time": t.time.replace(tzinfo=IST).strftime("%d %b %Y at %I:%M %p"),      # 👈 replace not astimezone
+            "time_iso": t.time.replace(tzinfo=IST).isoformat(),                         # 👈 replace not astimezone
             "is_recurring": t.is_recurring,
             "recur_type": t.recur_type,
             "recur_value": t.recur_value
