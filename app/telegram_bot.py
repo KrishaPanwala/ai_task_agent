@@ -10,6 +10,7 @@ from app.db import SessionLocal
 from app.models import Task, User
 from app.memory import get_memory, update_memory
 from app.weather import is_outdoor_task, get_weather_for_time
+from app.conflict import check_conflict, format_conflict_warning
 
 IST = ZoneInfo("Asia/Kolkata")
 
@@ -173,6 +174,10 @@ async def handle_message(update, context):
         await update.message.reply_text("❌ Invalid time")
         return
     
+    # 👇 conflict check
+    conflicts = check_conflict(user_id, parsed_time)
+    conflict_warning = format_conflict_warning(conflicts)
+    
     weather_warning = ""
     if is_outdoor_task(result["task"]):
         weather = get_weather_for_time(parsed_time)
@@ -214,7 +219,7 @@ async def handle_message(update, context):
         f"✅ Task Added\n\n"
         f"📌 {result['task']}\n"
         f"⏰ {parsed_time.strftime('%d %b %Y at %I:%M %p')}"
-        f"{recur_info}"
+        f"{recur_info}{weather_warning}{conflict_warning}"
     )
 
 application.add_handler(CommandHandler("start", start))

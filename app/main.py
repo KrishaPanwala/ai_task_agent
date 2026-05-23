@@ -22,6 +22,7 @@ from sqlalchemy import text
 
 from app.memory import get_memory, update_memory 
 from app.weather import is_outdoor_task, get_weather_for_time 
+from app.conflict import check_conflict, format_conflict_warning 
 
 IST = ZoneInfo("Asia/Kolkata")
 
@@ -179,6 +180,10 @@ async def extract(
     if not parsed_time:
         return JSONResponse({"error": "Invalid time"})
     
+    # 👇 conflict check
+    conflicts = check_conflict(current_user.id, parsed_time)
+    conflict_warning = format_conflict_warning(conflicts)
+    
      # 👇 weather check block — add this
     weather_warning = ""
     if is_outdoor_task(result["task"]):
@@ -221,7 +226,11 @@ async def extract(
     except Exception as e:
         print(f"❌ Telegram send error: {e}")
 
-    return {"status": "task added", "weather_warning": weather_warning}
+    return {
+        "status": "task added",
+        "weather_warning": weather_warning,
+        "conflict_warning": conflict_warning  
+    }
 
 @app.get("/tasks")
 async def get_tasks(current_user: User = Depends(get_current_user)):
