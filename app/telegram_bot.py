@@ -9,6 +9,7 @@ from app.ai import extract_task
 from app.db import SessionLocal
 from app.models import Task, User
 from app.memory import get_memory, update_memory
+from app.weather import is_outdoor_task, get_weather_for_time
 
 IST = ZoneInfo("Asia/Kolkata")
 
@@ -167,6 +168,16 @@ async def handle_message(update, context):
     if not parsed_time:
         await update.message.reply_text("❌ Invalid time")
         return
+    
+    weather_warning = ""
+    if is_outdoor_task(result["task"]):
+        weather = get_weather_for_time(parsed_time)
+        if weather:
+            weather_warning = f"\n\n🌤️ Weather: {weather['description']}, {weather['temperature']}°C"
+            if weather["rain_chance"] > 0:
+                weather_warning += f", {weather['rain_chance']}% rain chance"
+            if weather["is_bad"]:
+                weather_warning += f"\n⚠️ Bad weather expected! Consider rescheduling."
 
     db = SessionLocal()
 

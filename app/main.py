@@ -21,6 +21,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import text
 
 from app.memory import get_memory, update_memory 
+from app.weather import is_outdoor_task, get_weather_for_time 
 
 IST = ZoneInfo("Asia/Kolkata")
 
@@ -177,6 +178,17 @@ async def extract(
     })
     if not parsed_time:
         return JSONResponse({"error": "Invalid time"})
+    
+     # 👇 weather check block — add this
+    weather_warning = ""
+    if is_outdoor_task(result["task"]):
+        weather = get_weather_for_time(parsed_time)
+        if weather:
+            weather_warning = f"\n\n🌤️ Weather at that time: {weather['description']}, {weather['temperature']}°C"
+            if weather["rain_chance"] > 0:
+                weather_warning += f", {weather['rain_chance']}% rain chance"
+            if weather["is_bad"]:
+                weather_warning += f"\n⚠️ Bad weather expected! Consider rescheduling."
 
     db = SessionLocal()
     new_task = Task(
@@ -206,7 +218,7 @@ async def extract(
     except:
         pass
 
-    return {"status": "task added"}
+    return {"status": "task added", "weather_warning": weather_warning}
 
 @app.get("/tasks")
 async def get_tasks(current_user: User = Depends(get_current_user)):
