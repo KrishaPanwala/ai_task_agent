@@ -196,7 +196,7 @@ async def extract(
     db = SessionLocal()
     new_task = Task(
         task=result["task"],
-        time=parsed_time,
+        time=parsed_time.replace(tzinfo=None),
         chat_id=current_user.chat_id,
         user_id=current_user.id,
         is_recurring=result.get("is_recurring", False),
