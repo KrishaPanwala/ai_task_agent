@@ -182,9 +182,11 @@ async def extract(
      # 👇 weather check block — add this
     weather_warning = ""
     if is_outdoor_task(result["task"]):
+        print(f"🏃 Outdoor task detected: {result['task']}") 
         weather = get_weather_for_time(parsed_time)
         if weather:
             weather_warning = f"\n\n🌤️ Weather at that time: {weather['description']}, {weather['temperature']}°C"
+            print(f"🌦️ Weather data: {weather}")
             if weather["rain_chance"] > 0:
                 weather_warning += f", {weather['rain_chance']}% rain chance"
             if weather["is_bad"]:
