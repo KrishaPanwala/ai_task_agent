@@ -5,21 +5,22 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 from groq import Groq
 from app.config import GROQ_API_KEY
-import json
 
 IST = ZoneInfo("Asia/Kolkata")
 client = Groq(api_key=GROQ_API_KEY)
+
 
 def get_memory(user_id: int) -> str:
     """Load user memory as a string to inject into AI prompt."""
     if not user_id:
         return ""
     db = SessionLocal()
-    mem = db.query(UserMemory).filter(UserMemory.user_id == user_id).first()
-    db.close()
-    if not mem or not mem.memory:
-        return ""
-    return mem.memory
+    try:
+        mem = db.query(UserMemory).filter(UserMemory.user_id == user_id).first()
+        return mem.memory if mem and mem.memory else ""
+    finally:
+        db.close()
+
 
 def update_memory(user_id: int, new_task: str, new_time: str):
     """After saving a reminder, update memory with new pattern."""
@@ -27,10 +28,11 @@ def update_memory(user_id: int, new_task: str, new_time: str):
         return
 
     db = SessionLocal()
-    mem = db.query(UserMemory).filter(UserMemory.user_id == user_id).first()
-    existing = mem.memory if mem else ""
+    try:
+        mem = db.query(UserMemory).filter(UserMemory.user_id == user_id).first()
+        existing = mem.memory if mem else ""
 
-    prompt = f"""You are a memory manager for a reminder app.
+        prompt = f"""You are a memory manager for a reminder app.
 
 Current memory about this user:
 {existing if existing else "No memory yet."}
@@ -48,7 +50,6 @@ Keep it short (max 10 lines). Focus on:
 
 Return ONLY the updated memory text, no explanation."""
 
-    try:
         response = client.chat.completions.create(
             model="llama-3.3-70b-versatile",
             messages=[
@@ -72,7 +73,9 @@ Return ONLY the updated memory text, no explanation."""
 
         db.commit()
         print(f"🧠 Memory updated for user {user_id}")
+
     except Exception as e:
         print(f"❌ Memory update error: {e}")
+
     finally:
-        db.close()
+        db.close()  # ← always runs, never before commit

@@ -26,22 +26,27 @@ OUTDOOR_KEYWORDS = [
     "swim", "swimming", "drive", "driving", "wash car", "car wash"
 ]
 
+
 def is_outdoor_task(task_text: str) -> bool:
     """Check if task involves outdoor activity."""
     task_lower = task_text.lower()
-    return any(keyword in task_lower for keyword in OUTDOOR_KEYWORDS)
-    print(f"🔍 is_outdoor_task('{task_text}') → {result}")  # 👈 add this
+    result = any(keyword in task_lower for keyword in OUTDOOR_KEYWORDS)
+    print(f"🔍 is_outdoor_task('{task_text}') → {result}")
     return result
 
-def get_weather_for_time(reminder_time: datetime, lat: float = 21.1702, lon: float = 72.8311) -> dict:
+
+def get_weather_for_time(
+    reminder_time: datetime,
+    lat: float = 21.1702,
+    lon: float = 72.8311
+) -> dict:
     """
     Fetch weather for a specific datetime and location.
-    Default coords: Surat, Gujarat (change to user's city or make dynamic)
+    Default coords: Surat, Gujarat.
     Returns dict with weather info or empty dict on failure.
     """
-    print(f"🌤️ Fetching weather for {reminder_time} at {lat},{lon}") 
+    print(f"🌤️ Fetching weather for {reminder_time} at {lat},{lon}")
     try:
-        # format date for API
         date_str = reminder_time.strftime("%Y-%m-%d")
 
         url = (
@@ -55,37 +60,33 @@ def get_weather_for_time(reminder_time: datetime, lat: float = 21.1702, lon: flo
         response = httpx.get(url, timeout=5)
         data = response.json()
 
-        # find the closest hour to reminder time
         target_hour = reminder_time.hour
-        hours = data["hourly"]["time"]  # list of "2024-06-20T07:00"
-        codes = data["hourly"]["weathercode"]
-        temps = data["hourly"]["temperature_2m"]
+        hours  = data["hourly"]["time"]
+        codes  = data["hourly"]["weathercode"]
+        temps  = data["hourly"]["temperature_2m"]
         precip = data["hourly"]["precipitation_probability"]
 
-        # find matching hour index
-        idx = None
-        for i, h in enumerate(hours):
-            if f"T{target_hour:02d}:00" in h:
-                idx = i
-                break
-
+        idx = next(
+            (i for i, h in enumerate(hours) if f"T{target_hour:02d}:00" in h),
+            None
+        )
         if idx is None:
             return {}
 
-        code = codes[idx]
-        temp = temps[idx]
+        code        = codes[idx]
+        temp        = temps[idx]
         rain_chance = precip[idx]
         description = WEATHER_DESCRIPTIONS.get(code, "Unknown")
-        is_bad = code in BAD_WEATHER_CODES
+        is_bad      = code in BAD_WEATHER_CODES
 
-        print(f"✅ Weather result: {code}, {temp}°C, {rain_chance}% rain")  
+        print(f"✅ Weather result: {code}, {temp}°C, {rain_chance}% rain")
 
         return {
             "description": description,
             "temperature": temp,
             "rain_chance": rain_chance,
             "is_bad": is_bad,
-            "code": code
+            "code": code,
         }
 
     except Exception as e:

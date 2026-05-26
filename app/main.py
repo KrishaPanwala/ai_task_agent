@@ -7,22 +7,18 @@ from fastapi.middleware.cors import CORSMiddleware
 from pathlib import Path
 from telegram import Update
 from zoneinfo import ZoneInfo
-import os, dateparser, asyncio
+import os, asyncio
 
 from app.db import engine, SessionLocal, Base
 from app.models import Task, User
-from app.ai import extract_task
 from app.scheduler import start_scheduler, set_main_loop
 from app.telegram_bot_runner import start_telegram_bot_background
 from app.telegram import send_telegram_message
 from app.telegram_bot import application as telegram_app
 from app.auth import get_db, get_current_user, hash_password, verify_password, create_token
+from app.agent.loop import run_agent
 from sqlalchemy.orm import Session
 from sqlalchemy import text
-
-from app.memory import get_memory, update_memory 
-from app.weather import is_outdoor_task, get_weather_for_time 
-from app.conflict import check_conflict, format_conflict_warning 
 
 IST = ZoneInfo("Asia/Kolkata")
 
@@ -34,7 +30,7 @@ BASE_DIR = Path(__file__).resolve().parent
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
 
-# ─── Pages ───────────────────────────────────────────────────────────────────
+# ─── Pages ────────────────────────────────────────────────────────────────────
 
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
@@ -114,7 +110,7 @@ async def logout():
         key="access_token",
         httponly=True,
         samesite="lax",
-        path="/"  # ✅ must specify path
+        path="/"
     )
     return response
 
@@ -163,74 +159,17 @@ async def extract(
     if not current_user.chat_id:
         return JSONResponse({"error": "Please set your Telegram Chat ID in profile"})
 
-    # 👇 load memory first
-    memory = get_memory(current_user.id)
-
-    # 👇 pass memory to AI
-    result = extract_task(message, memory=memory)
-    if "task" not in result or "time" not in result:
-        return JSONResponse({"error": "Could not extract task"})
-
-    parsed_time = dateparser.parse(result["time"], settings={
-        "PREFER_DATES_FROM": "future",
-        "RETURN_AS_TIMEZONE_AWARE": True,
-        "TIMEZONE": "Asia/Kolkata",
-        "TO_TIMEZONE": "Asia/Kolkata"
-    })
-    if not parsed_time:
-        return JSONResponse({"error": "Invalid time"})
-    
-    # 👇 conflict check
-    conflicts = check_conflict(current_user.id, parsed_time)
-    conflict_warning = format_conflict_warning(conflicts)
-    
-     # 👇 weather check block — add this
-    weather_warning = ""
-    if is_outdoor_task(result["task"]):
-        print(f"🏃 Outdoor task detected: {result['task']}") 
-        weather = get_weather_for_time(parsed_time)
-        if weather:
-            weather_warning = f"\n\n🌤️ Weather at that time: {weather['description']}, {weather['temperature']}°C"
-            print(f"🌦️ Weather data: {weather}")
-            if weather["rain_chance"] > 0:
-                weather_warning += f", {weather['rain_chance']}% rain chance"
-            if weather["is_bad"]:
-                weather_warning += f"\n⚠️ Bad weather expected! Consider rescheduling."
-                weather_warning += f"\n💡 Tip: Try early morning (5am) or evening (7pm) instead."
-
-    db = SessionLocal()
-    new_task = Task(
-        task=result["task"],
-        time=parsed_time.replace(tzinfo=None),
-        chat_id=current_user.chat_id,
-        user_id=current_user.id,
-        is_recurring=result.get("is_recurring", False),
-        recur_type=result.get("recur_type", None),
-        recur_value=result.get("recur_value", None)
-    )
-    db.add(new_task)
-    db.commit()
-    db.close()
-
-    # update memory after saving
-    update_memory(current_user.id, result["task"], parsed_time.strftime("%d %b %Y at %I:%M %p"))
-
     try:
-        recur_info = ""
-        if result.get("is_recurring"):
-            recur_info = f"\n🔁 Repeats: {result.get('recur_type')}"
-        full_msg = f"✅ Task Added\n\n{result['task']}\n⏰ {parsed_time.strftime('%d %b %Y at %I:%M %p')}{recur_info}{weather_warning}{conflict_warning}"
-        print(f"📤 FULL MSG: {repr(full_msg)}")  # 👈 add this
-        
-        send_telegram_message(full_msg, current_user.chat_id)
+        # Agent handles memory, conflict check, weather, saving, and reply text
+        reply = run_agent(message, current_user.id)
+        return {
+            "status": "task added",
+            "message": reply,
+        }
     except Exception as e:
-        print(f"❌ Telegram send error: {e}")
+        print(f"❌ Agent error in /extract: {e}")
+        return JSONResponse({"error": "Agent failed. Please try again."}, status_code=500)
 
-    return {
-        "status": "task added",
-        "weather_warning": weather_warning,
-        "conflict_warning": conflict_warning  
-    }
 
 @app.get("/tasks")
 async def get_tasks(current_user: User = Depends(get_current_user)):
@@ -240,8 +179,8 @@ async def get_tasks(current_user: User = Depends(get_current_user)):
         {
             "id": t.id,
             "task": t.task,
-            "time": t.time.replace(tzinfo=IST).strftime("%d %b %Y at %I:%M %p"),      # 👈 replace not astimezone
-            "time_iso": t.time.replace(tzinfo=IST).isoformat(),                         # 👈 replace not astimezone
+            "time": t.time.replace(tzinfo=IST).strftime("%d %b %Y at %I:%M %p"),
+            "time_iso": t.time.replace(tzinfo=IST).isoformat(),
             "is_recurring": t.is_recurring,
             "recur_type": t.recur_type,
             "recur_value": t.recur_value
@@ -264,30 +203,28 @@ async def delete_task(
     db.close()
     return {"status": "deleted"}
 
-# ─── Startup/Shutdown ─────────────────────────────────────────────────────────
+# ─── Startup / Shutdown ───────────────────────────────────────────────────────
 
 @app.on_event("startup")
 async def start_services():
-    # ✅ Step 1 — Create all new tables first
     Base.metadata.create_all(bind=engine)
     print("✅ Tables created")
 
-    # ✅ Step 2 — Add missing columns to existing tables
     with engine.connect() as conn:
         conn.execute(text("ALTER TABLE tasks ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id)"))
         conn.execute(text("ALTER TABLE tasks ADD COLUMN IF NOT EXISTS is_recurring BOOLEAN DEFAULT FALSE"))
         conn.execute(text("ALTER TABLE tasks ADD COLUMN IF NOT EXISTS recur_type VARCHAR"))
         conn.execute(text("ALTER TABLE tasks ADD COLUMN IF NOT EXISTS recur_value VARCHAR"))
         conn.execute(text("""
-        CREATE TABLE IF NOT EXISTS user_memory (
-            id SERIAL PRIMARY KEY,
-            user_id INTEGER UNIQUE REFERENCES users(id),
-            memory TEXT,
-            updated_at TIMESTAMPTZ
-        )
-         """))                  
+            CREATE TABLE IF NOT EXISTS user_memory (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER UNIQUE REFERENCES users(id),
+                memory TEXT,
+                updated_at TIMESTAMPTZ
+            )
+        """))
         conn.commit()
-    print("✅ Memory table created done")
+    print("✅ Memory table ensured")
 
     set_main_loop(asyncio.get_event_loop())
     start_scheduler()

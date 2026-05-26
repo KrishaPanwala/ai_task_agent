@@ -1,5 +1,7 @@
 # app/scheduler.py
-import threading, time, asyncio
+import threading
+import time
+import asyncio
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
@@ -10,9 +12,14 @@ from app.telegram_bot import application as telegram_app
 IST = ZoneInfo("Asia/Kolkata")
 main_loop = None
 
+# Track whether proactive check has run today
+_last_proactive_date = None
+
+
 def set_main_loop(loop):
     global main_loop
     main_loop = loop
+
 
 def next_recur_time(task):
     if task.recur_type == "daily":
@@ -26,6 +33,21 @@ def next_recur_time(task):
         return task.time + timedelta(weeks=1)
     return None
 
+
+def _run_proactive_if_due():
+    """Fire proactive checks once per day at 9 AM IST."""
+    global _last_proactive_date
+    now = datetime.now(IST)
+
+    if now.hour == 9 and now.date() != _last_proactive_date:
+        _last_proactive_date = now.date()
+        try:
+            from app.agent.proactive import run_proactive_checks
+            run_proactive_checks()
+        except Exception as e:
+            print(f"❌ Proactive check error: {e}")
+
+
 def check_tasks():
     print("⏰ Scheduler started")
     while True:
@@ -37,15 +59,14 @@ def check_tasks():
             tasks = db.query(Task).filter(Task.time <= now_naive).all()
 
             for task in tasks:
-                # ✅ Encode task text in callback_data so snooze works even after deletion
-                safe_task_text = task.task[:40].replace("_", " ")  # trim + sanitize
+                safe_task_text = task.task[:40].replace("_", " ")
                 user_id_str = str(task.user_id) if task.user_id else "none"
 
                 keyboard = InlineKeyboardMarkup([
                     [
-                        InlineKeyboardButton("✅ Done", callback_data=f"done_{task.id}"),
+                        InlineKeyboardButton("✅ Done",    callback_data=f"done_{task.id}"),
                         InlineKeyboardButton("⏰ 10 min", callback_data=f"snooze_10_{task.id}_{user_id_str}_{safe_task_text}"),
-                        InlineKeyboardButton("⏰ 1 hr",  callback_data=f"snooze_60_{task.id}_{user_id_str}_{safe_task_text}"),
+                        InlineKeyboardButton("⏰ 1 hr",   callback_data=f"snooze_60_{task.id}_{user_id_str}_{safe_task_text}"),
                     ]
                 ])
 
@@ -56,9 +77,9 @@ def check_tasks():
                         chat_id=task.chat_id,
                         text=f"🔔 *Reminder*\n\n📌 {task.task}{recur_label}",
                         parse_mode="Markdown",
-                        reply_markup=keyboard
+                        reply_markup=keyboard,
                     ),
-                    main_loop
+                    main_loop,
                 )
 
                 if task.is_recurring:
@@ -71,7 +92,7 @@ def check_tasks():
                             user_id=task.user_id,
                             is_recurring=True,
                             recur_type=task.recur_type,
-                            recur_value=task.recur_value
+                            recur_value=task.recur_value,
                         )
                         db.add(new_task)
 
@@ -79,9 +100,15 @@ def check_tasks():
                 db.commit()
 
             db.close()
+
         except Exception as e:
             print("❌ Scheduler error:", e)
+
+        # Proactive check — runs once at 9 AM, free otherwise
+        _run_proactive_if_due()
+
         time.sleep(10)
+
 
 def start_scheduler():
     thread = threading.Thread(target=check_tasks, daemon=True)
