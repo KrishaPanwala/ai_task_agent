@@ -12,97 +12,7 @@ IST = ZoneInfo("Asia/Kolkata")
 client = Groq(api_key=GROQ_API_KEY)
 
 MAX_TURNS = 8
-MODEL = "llama-3.3-70b-versatile"  # tool-use specific model
-
-
-# ─── System prompt ────────────────────────────────────────────────────────────
-
-def build_system_prompt(memory_profile: str = "") -> str:
-    now = datetime.now(IST)
-    today = now.strftime("%A, %d %B %Y")
-    time_now = now.strftime("%I:%M %p IST")
-
-    memory_section = (
-        f"\n\nUser memory profile:\n{memory_profile}"
-        if memory_profile
-        else "\n\nUser memory profile: none yet."
-    )
-
-    return f"""You are an intelligent reminder agent. Today is {today}, current time is {time_now}.
-{memory_section}
-
-Your job is to help users set reminders, plan goals, and stay organised.
-
-When setting a reminder, always:
-1. Call read_memory first.
-2. Extract task and time. Use memory to fill gaps.
-3. Call check_conflicts before saving.
-4. If the task is outdoor (jogging, cycling, walking, picnic), call fetch_weather.
-5. Call save_reminder only after the above steps.
-6. Call update_memory to record new patterns.
-7. Reply with a friendly confirmation including any warnings.
-
-For high-level goals like "help me build a morning routine":
-- Call decompose_goal first.
-- Show the proposed sub-reminders to the user BEFORE saving.
-- Only save after the user confirms.
-
-Keep replies friendly and concise. Never show raw JSON to the user.
-
-Datetime rules:
-- All times are IST (Asia/Kolkata).
-- Output datetimes as ISO 8601: YYYY-MM-DDTHH:MM:00
-- If no date mentioned, assume today. If time has passed, use tomorrow.
-- Current year is {now.year}."""
-
-
-# ─── Goal planning pass ───────────────────────────────────────────────────────
-
-def plan_goal(user_id: str, goal: str, context: str, memory_profile: str) -> str:
-    now = datetime.now(IST)
-    prompt = f"""Today is {now.strftime('%A, %d %B %Y')}, time is {now.strftime('%I:%M %p IST')}.
-
-User memory:
-{memory_profile or 'none'}
-
-The user wants to achieve this goal: "{goal}"
-Extra context: "{context}"
-
-Break this into 3-6 specific, actionable reminders.
-Return ONLY a JSON array, no markdown, no explanation:
-[
-  {{"task": "...", "suggested_time": "YYYY-MM-DDTHH:MM:00", "recurrence": "daily|weekly|none"}},
-  ...
-]
-
-Use the user's preferred times from memory when available.
-Space reminders sensibly. Use "daily" for habits, "none" for one-off tasks."""
-
-    response = client.chat.completions.create(
-        model="llama-3.3-70b-versatile",
-        messages=[
-            {"role": "system", "content": "Return ONLY a valid JSON array. No explanation, no markdown."},
-            {"role": "user", "content": prompt},
-        ],
-        temperature=0.3,
-    )
-    raw = response.choices[0].message.content.strip()
-    raw = raw.replace("```json", "").replace("```", "").strip()
-    try:
-        plan = json.loads(raw)
-        lines = [
-            f"  {i+1}. {r['task']} - {r['suggested_time']} ({r['recurrence']})"
-            for i, r in enumerate(plan)
-        ]
-        return json.dumps({
-            "plan": plan,
-            "preview": "Here is the proposed plan:\n" + "\n".join(lines),
-        })
-    except Exception:
-        return json.dumps({"error": "Could not parse goal plan", "raw": raw})
-
-
-# ─── Tools that require user_id ───────────────────────────────────────────────
+MODEL = "llama-3.3-70b-versatile"
 
 TOOLS_NEEDING_USER_ID = {
     "read_memory", "update_memory", "check_conflicts",
@@ -110,7 +20,49 @@ TOOLS_NEEDING_USER_ID = {
 }
 
 
-# ─── ReAct loop ───────────────────────────────────────────────────────────────
+def build_system_prompt(memory_profile: str = "") -> str:
+    now = datetime.now(IST)
+    memory_section = f"User memory:\n{memory_profile}" if memory_profile else "User memory: none yet."
+    return f"""You are a reminder assistant. Today is {now.strftime('%A, %d %B %Y')}, time is {now.strftime('%I:%M %p')} IST. Year: {now.year}.
+
+{memory_section}
+
+For every reminder request, call tools in this exact order:
+1. read_memory
+2. check_conflicts
+3. fetch_weather (outdoor tasks only: jogging, cycling, walking, etc.)
+4. save_reminder
+5. update_memory
+Then reply with a short confirmation.
+
+For goals ("build a routine", "study plan"), call decompose_goal first and show the plan before saving.
+
+Always output datetimes as YYYY-MM-DDTHH:MM:00 in IST. If no date given, use today; if time passed, use tomorrow."""
+
+
+def plan_goal(user_id: str, goal: str, context: str, memory_profile: str) -> str:
+    now = datetime.now(IST)
+    prompt = f"""Today: {now.strftime('%A, %d %B %Y')}, {now.strftime('%I:%M %p')} IST.
+Memory: {memory_profile or 'none'}
+Goal: "{goal}" Context: "{context}"
+Return ONLY a JSON array:
+[{{"task":"...","suggested_time":"YYYY-MM-DDTHH:MM:00","recurrence":"daily|weekly|none"}}]"""
+    response = client.chat.completions.create(
+        model=MODEL,
+        messages=[
+            {"role": "system", "content": "Return ONLY a valid JSON array. No markdown."},
+            {"role": "user", "content": prompt},
+        ],
+        temperature=0.3,
+    )
+    raw = response.choices[0].message.content.strip().replace("```json", "").replace("```", "").strip()
+    try:
+        plan = json.loads(raw)
+        lines = [f"  {i+1}. {r['task']} - {r['suggested_time']} ({r['recurrence']})" for i, r in enumerate(plan)]
+        return json.dumps({"plan": plan, "preview": "Proposed plan:\n" + "\n".join(lines)})
+    except Exception:
+        return json.dumps({"error": "Could not parse goal plan", "raw": raw})
+
 
 def run_agent(user_message: str, user_id: int) -> str:
     from app.memory import get_memory
@@ -122,23 +74,28 @@ def run_agent(user_message: str, user_id: int) -> str:
     ]
 
     for turn in range(MAX_TURNS):
-        response = client.chat.completions.create(
-        model="llama-3.3-70b-versatile",
-        messages=messages,
-        tools=TOOLS,
-        tool_choice="auto",
-        temperature=0.2,
-        parallel_tool_calls=False,
-    )
+        print(f"🔄 Turn {turn + 1}")
+
+        try:
+            response = client.chat.completions.create(
+                model=MODEL,
+                messages=messages,
+                tools=TOOLS,
+                tool_choice="auto",
+                temperature=0,
+                parallel_tool_calls=False,
+            )
+        except Exception as e:
+            print(f"❌ Groq error: {e}")
+            raise
 
         choice = response.choices[0]
         msg = choice.message
+        print(f"finish_reason={choice.finish_reason} | tool_calls={bool(msg.tool_calls)}")
 
-        # ── Final text response ────────────────────────────────────────────
         if choice.finish_reason == "stop":
             return msg.content or "Done! Your reminder has been set."
 
-        # ── Tool calls ─────────────────────────────────────────────────────
         if choice.finish_reason == "tool_calls" and msg.tool_calls:
             messages.append({
                 "role": "assistant",
@@ -147,10 +104,7 @@ def run_agent(user_message: str, user_id: int) -> str:
                     {
                         "id": tc.id,
                         "type": "function",
-                        "function": {
-                            "name": tc.function.name,
-                            "arguments": tc.function.arguments,
-                        },
+                        "function": {"name": tc.function.name, "arguments": tc.function.arguments},
                     }
                     for tc in msg.tool_calls
                 ],
@@ -163,13 +117,12 @@ def run_agent(user_message: str, user_id: int) -> str:
                 except json.JSONDecodeError:
                     tool_args = {}
 
-                print(f"🔧 Tool: {tool_name}({tool_args})")
-
-                # Inject user_id if missing
+                # Always inject real user_id — never trust what model provides
                 if tool_name in TOOLS_NEEDING_USER_ID:
                     tool_args["user_id"] = str(user_id)
 
-                # Goal decomposition gets its own LLM pass
+                print(f"🔧 {tool_name}({tool_args})")
+
                 if tool_name == "decompose_goal":
                     result_str = plan_goal(
                         user_id=str(user_id),
@@ -180,7 +133,7 @@ def run_agent(user_message: str, user_id: int) -> str:
                 else:
                     result_str = dispatch_tool(tool_name, tool_args)
 
-                print(f"✅ Result: {result_str[:120]}")
+                print(f"✅ {result_str[:200]}")
 
                 messages.append({
                     "role": "tool",
@@ -190,7 +143,7 @@ def run_agent(user_message: str, user_id: int) -> str:
 
             continue
 
-        # Unexpected finish reason
-        return msg.content or "I have processed your request."
+        print(f"⚠️ Unexpected finish_reason: {choice.finish_reason}")
+        return msg.content or "Request processed."
 
-    return "I processed your request but hit a complexity limit. Please try rephrasing."
+    return "Request processed. Please check your reminders."
