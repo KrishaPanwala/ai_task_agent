@@ -105,6 +105,7 @@ Return ONLY a JSON array, no markdown:
 def run_agent(user_message: str, user_id: int) -> str:
     from app.memory import get_memory
     memory_profile = get_memory(user_id) or ""
+    memory_profile = memory_profile[:250] if len(memory_profile) > 250 else memory_profile
 
     messages = [
         {"role": "system", "content": build_system_prompt(memory_profile)},

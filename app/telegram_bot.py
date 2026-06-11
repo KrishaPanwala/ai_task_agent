@@ -169,11 +169,13 @@ async def handle_message(update, context):
 
     try:
         reply = run_agent(user_message, user_id)
-        await update.message.reply_text(reply, parse_mode="Markdown")
+        await update.message.reply_text(reply)
     except Exception as e:
-        print(f"❌ Agent error: {e}")
-        await update.message.reply_text("❌ Something went wrong. Please try again.")
-
+        if "429" in str(e):
+            await update.message.reply_text("⏳ AI is busy right now, please try again in a few minutes.")
+        else:
+            print(f"❌ Agent error: {e}")
+            await update.message.reply_text("❌ Something went wrong. Please try again.")
 
 application.add_handler(CommandHandler("start", start))
 application.add_handler(CommandHandler("list", list_tasks))
