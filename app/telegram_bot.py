@@ -169,7 +169,7 @@ async def handle_message(update, context):
 
     try:
         reply = run_agent(user_message, user_id)
-        await update.message.reply_text(reply)
+        await update.message.reply_text(reply, parse_mode="Markdown")
     except Exception as e:
         print(f"❌ Agent error: {e}")
         await update.message.reply_text("❌ Something went wrong. Please try again.")

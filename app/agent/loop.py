@@ -52,7 +52,11 @@ For every reminder request follow this order:
 3. TOOL_CALL fetch_weather (only if outdoor task: jogging, cycling, walking, picnic, etc.)
 4. TOOL_CALL save_reminder
 5. TOOL_CALL update_memory
-6. Write confirmation to user.
+6. Write confirmation to user. Your confirmation MUST include:
+   - The task and scheduled time
+   - Any conflict warning from check_conflicts if has_conflicts is true
+   - Any weather warning from fetch_weather if is_bad is true or rain_chance > 30
+   - Recurrence info if not "none"
 
 For goals like "help me build a morning routine", call decompose_goal first, show the plan, then save only after user confirms.
 
