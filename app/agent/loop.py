@@ -166,7 +166,7 @@ def run_agent(user_message: str, user_id: int) -> str:
                 print(f"🔧 Tool: {tool_name}({tool_args})")
 
                 # Inject user_id if missing
-                if tool_name in TOOLS_NEEDING_USER_ID and "user_id" not in tool_args:
+                if tool_name in TOOLS_NEEDING_USER_ID:
                     tool_args["user_id"] = str(user_id)
 
                 # Goal decomposition gets its own LLM pass
