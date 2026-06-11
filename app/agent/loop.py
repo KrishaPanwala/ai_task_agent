@@ -1,15 +1,4 @@
 # app/agent/loop.py
-"""
-ReAct agent loop.
-
-Flow for every user message:
-  1. Load memory + build system prompt
-  2. Send to Groq with all tool schemas
-  3. If model returns tool_calls  -> dispatch each -> append results -> loop
-  4. If model returns text        -> final response, return it
-  5. Safety cap: max MAX_TURNS iterations to prevent runaway loops
-"""
-
 import json
 from datetime import datetime
 from zoneinfo import ZoneInfo
@@ -23,7 +12,7 @@ IST = ZoneInfo("Asia/Kolkata")
 client = Groq(api_key=GROQ_API_KEY)
 
 MAX_TURNS = 8
-MODEL = "llama-3.3-70b-versatile"
+MODEL = "llama3-groq-70b-8192-tool-use-preview"  # tool-use specific model
 
 
 # ─── System prompt ────────────────────────────────────────────────────────────
@@ -44,42 +33,32 @@ def build_system_prompt(memory_profile: str = "") -> str:
 
 Your job is to help users set reminders, plan goals, and stay organised.
 
-## How to behave
+When setting a reminder, always:
+1. Call read_memory first.
+2. Extract task and time. Use memory to fill gaps.
+3. Call check_conflicts before saving.
+4. If the task is outdoor (jogging, cycling, walking, picnic), call fetch_weather.
+5. Call save_reminder only after the above steps.
+6. Call update_memory to record new patterns.
+7. Reply with a friendly confirmation including any warnings.
 
-Always follow this order when setting a reminder:
-1. Call read_memory to load the user's habits and preferences.
-2. Extract the task and time from the message. Use memory to fill gaps
-   (e.g. if they say "morning" and memory shows they prefer 7am, use 7am).
-3. Call check_conflicts to check for overlapping reminders.
-4. If the task sounds outdoor (jogging, cycling, walking, picnic), call fetch_weather.
-5. Call save_reminder only after steps 1-4 are done.
-6. Call update_memory to record new patterns observed.
-7. Reply to the user with a friendly confirmation including any warnings.
-
-For high-level goals ("help me build a morning routine", "I want to study for exams"):
+For high-level goals like "help me build a morning routine":
 - Call decompose_goal first.
-- Then propose the sub-reminders to the user in a clear list BEFORE saving anything.
+- Show the proposed sub-reminders to the user BEFORE saving.
 - Only save after the user confirms.
 
-## Tone
-- Friendly, concise. No bullet-point walls of text.
-- Summarise warnings clearly: one line for conflicts, one line for weather.
-- Never expose raw tool results or JSON to the user.
+Keep replies friendly and concise. Never show raw JSON to the user.
 
-## Datetime rules
+Datetime rules:
 - All times are IST (Asia/Kolkata).
-- Always output datetimes as ISO 8601: YYYY-MM-DDTHH:MM:00
-- If no date is mentioned, assume today. If the time has passed, use tomorrow.
+- Output datetimes as ISO 8601: YYYY-MM-DDTHH:MM:00
+- If no date mentioned, assume today. If time has passed, use tomorrow.
 - Current year is {now.year}."""
 
 
 # ─── Goal planning pass ───────────────────────────────────────────────────────
 
 def plan_goal(user_id: str, goal: str, context: str, memory_profile: str) -> str:
-    """
-    Dedicated LLM call to decompose a goal into a JSON list of sub-reminders.
-    Returns a formatted string the agent appends as a tool result.
-    """
     now = datetime.now(IST)
     prompt = f"""Today is {now.strftime('%A, %d %B %Y')}, time is {now.strftime('%I:%M %p IST')}.
 
@@ -89,22 +68,20 @@ User memory:
 The user wants to achieve this goal: "{goal}"
 Extra context: "{context}"
 
-Break this into 3-6 specific, actionable daily reminders.
+Break this into 3-6 specific, actionable reminders.
 Return ONLY a JSON array, no markdown, no explanation:
 [
   {{"task": "...", "suggested_time": "YYYY-MM-DDTHH:MM:00", "recurrence": "daily|weekly|none"}},
   ...
 ]
 
-Rules:
-- Use the user's preferred times from memory when available.
-- Space reminders sensibly (not all at the same time).
-- recurrence should be "daily" for habits, "none" for one-off milestones."""
+Use the user's preferred times from memory when available.
+Space reminders sensibly. Use "daily" for habits, "none" for one-off tasks."""
 
     response = client.chat.completions.create(
-        model=MODEL,
+        model="llama-3.3-70b-versatile",
         messages=[
-            {"role": "system", "content": "Return ONLY valid JSON array. No explanation, no markdown."},
+            {"role": "system", "content": "Return ONLY a valid JSON array. No explanation, no markdown."},
             {"role": "user", "content": prompt},
         ],
         temperature=0.3,
@@ -136,10 +113,6 @@ TOOLS_NEEDING_USER_ID = {
 # ─── ReAct loop ───────────────────────────────────────────────────────────────
 
 def run_agent(user_message: str, user_id: int) -> str:
-    """
-    Main entry point. Replaces extract_task() in telegram_bot.py and main.py.
-    Returns a plain-text string to send back to the user.
-    """
     from app.memory import get_memory
     memory_profile = get_memory(user_id) or ""
 
@@ -160,11 +133,11 @@ def run_agent(user_message: str, user_id: int) -> str:
         choice = response.choices[0]
         msg = choice.message
 
-        # Final text response
+        # ── Final text response ────────────────────────────────────────────
         if choice.finish_reason == "stop":
             return msg.content or "Done! Your reminder has been set."
 
-        # Tool calls
+        # ── Tool calls ─────────────────────────────────────────────────────
         if choice.finish_reason == "tool_calls" and msg.tool_calls:
             messages.append({
                 "role": "assistant",
@@ -189,7 +162,7 @@ def run_agent(user_message: str, user_id: int) -> str:
                 except json.JSONDecodeError:
                     tool_args = {}
 
-                print(f"Tool call: {tool_name}({tool_args})")
+                print(f"🔧 Tool: {tool_name}({tool_args})")
 
                 # Inject user_id if missing
                 if tool_name in TOOLS_NEEDING_USER_ID and "user_id" not in tool_args:
@@ -206,7 +179,7 @@ def run_agent(user_message: str, user_id: int) -> str:
                 else:
                     result_str = dispatch_tool(tool_name, tool_args)
 
-                print(f"Tool result: {result_str[:120]}")
+                print(f"✅ Result: {result_str[:120]}")
 
                 messages.append({
                     "role": "tool",
