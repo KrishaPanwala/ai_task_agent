@@ -12,7 +12,7 @@ IST = ZoneInfo("Asia/Kolkata")
 client = Groq(api_key=GROQ_API_KEY)
 
 MAX_TURNS = 8
-MODEL = "llama3-groq-70b-8192-tool-use-preview"  # tool-use specific model
+MODEL = "llama-3.3-70b-versatile"  # tool-use specific model
 
 
 # ─── System prompt ────────────────────────────────────────────────────────────
@@ -123,12 +123,13 @@ def run_agent(user_message: str, user_id: int) -> str:
 
     for turn in range(MAX_TURNS):
         response = client.chat.completions.create(
-            model=MODEL,
-            messages=messages,
-            tools=TOOLS,
-            tool_choice="auto",
-            temperature=0.2,
-        )
+        model="llama-3.3-70b-versatile",
+        messages=messages,
+        tools=TOOLS,
+        tool_choice="auto",
+        temperature=0.2,
+        parallel_tool_calls=False,
+    )
 
         choice = response.choices[0]
         msg = choice.message
