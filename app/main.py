@@ -162,10 +162,17 @@ async def extract(
     try:
         # Agent handles memory, conflict check, weather, saving, and reply text
         reply = run_agent(message, current_user.id)
+
+        # Send to Telegram as well
+        try:
+            send_telegram_message(reply, current_user.chat_id)
+        except Exception as e:
+            print(f"❌ Telegram send error: {e}")
+
         return {
             "status": "task added",
             "message": reply,
-        }
+    }
     except Exception as e:
         print(f"❌ Agent error in /extract: {e}")
         return JSONResponse({"error": "Agent failed. Please try again."}, status_code=500)
