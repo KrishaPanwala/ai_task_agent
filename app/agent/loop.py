@@ -46,6 +46,8 @@ def build_system_prompt(memory_profile: str = "") -> str:
 
 {TOOL_DESCRIPTIONS}
 
+For goals like "help me build a morning routine", call decompose_goal first, show the plan, then save only after user confirms.
+
 For every reminder request follow this order:
 1. TOOL_CALL read_memory
 2. TOOL_CALL check_conflicts
@@ -58,7 +60,10 @@ For every reminder request follow this order:
    - Any weather warning from fetch_weather if is_bad is true or rain_chance > 30
    - Recurrence info if not "none"
 
-For goals like "help me build a morning routine", call decompose_goal first, show the plan, then save only after user confirms.
+Keep your final reply under 3 lines. Format:
+✅ [task] set for [time]
+⚠️ [conflict warning if any, one line]
+🌤️ [weather warning if any, one line]   
 
 Datetime rules:
 - All times IST. Format: YYYY-MM-DDTHH:MM:00
