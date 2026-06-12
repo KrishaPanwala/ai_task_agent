@@ -161,6 +161,7 @@ async def extract(
 
     try:
         reply = run_agent(message, current_user.id)
+        print(f"📤 Agent reply: {repr(reply)}")
         try:
             send_telegram_message(reply, current_user.chat_id)
         except Exception as e:
