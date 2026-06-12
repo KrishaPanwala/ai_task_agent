@@ -61,14 +61,14 @@ For every reminder request follow this order:
    - Recurrence info if not "none"
 
 Keep your final reply under 3 lines. Format:
-✅ [task] set for [time]
+✅ [task] set for [task] set for [time in "DD Mon YYYY at HH:MM AM/PM" format, e.g. "11 Jun 2026 at 09:00 PM"]
 ⚠️ [conflict warning if any, one line]
 🌤️ [weather warning if any, one line]   
 
 Datetime rules:
-- All times IST. Format: YYYY-MM-DDTHH:MM:00
+- All times IST. Use ISO format YYYY-MM-DDTHH:MM:00 in tool calls only.
+- In your final reply to the user, show time as "DD Mon YYYY at HH:MM AM/PM".
 - No date given → use today. Time already passed → use tomorrow."""
-
 
 def parse_tool_call(line: str):
     """Extract tool name and args from a TOOL_CALL line."""
