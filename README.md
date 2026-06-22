@@ -71,7 +71,7 @@ For every reminder request the agent follows this pipeline:
 ```
 1. read_memory      → load user habits and preferences
 2. check_conflicts  → check for overlapping reminders
-3. fetch_weather    → (outdoor tasks only) check forecast
+3. fetch_weather    → check forecast
 4. save_reminder    → write to database
 5. update_memory    → record new patterns
 6. Reply to user    → friendly confirmation with warnings
