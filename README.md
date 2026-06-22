@@ -261,16 +261,3 @@ Every day at 9 AM the agent reviews each user's schedule and sends helpful nudge
 - No action needed → stays silent
 
 ---
-
-## 🐛 Known Issues & Fixes
-
-| Issue | Fix Applied |
-|---|---|
-| Groq `<function=...>` XML tool format bug | Switched to manual TOOL_CALL text parsing |
-| LLM hallucinating fake user IDs | Always override user_id with authenticated value |
-| Timezone mismatch firing reminders immediately | Store and compare as naive IST throughout |
-| DB connection leak in memory.py | Moved `db.close()` to `finally` block |
-| Dead code after `return` in weather.py | Fixed `is_outdoor_task` function |
-| 100k daily token limit on Groq free tier | Capped memory profile to 250 chars |
-
----
