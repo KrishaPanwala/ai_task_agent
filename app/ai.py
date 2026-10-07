@@ -58,7 +58,7 @@ Rules:
 
     try:
         response = client.chat.completions.create(
-            model="llama3-70b-8192",
+            model="openai/gpt-oss-20b",
             messages=[
                 {"role": "system", "content": "You are a JSON extractor. Return ONLY valid JSON. No explanation, no markdown, no extra text."},
                 {"role": "user", "content": prompt}
