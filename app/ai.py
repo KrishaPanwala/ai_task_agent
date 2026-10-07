@@ -58,7 +58,7 @@ Rules:
 
     try:
         response = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
+            model="llama3-70b-8192",
             messages=[
                 {"role": "system", "content": "You are a JSON extractor. Return ONLY valid JSON. No explanation, no markdown, no extra text."},
                 {"role": "user", "content": prompt}
