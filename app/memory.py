@@ -51,7 +51,7 @@ Keep it short (max 10 lines). Focus on:
 Return ONLY the updated memory text, no explanation."""
 
         response = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
+            model=""llama3-70b-8192"",
             messages=[
                 {"role": "system", "content": "You are a concise memory manager. Return only the updated memory text."},
                 {"role": "user", "content": prompt}
