@@ -139,13 +139,13 @@ async def update_chat_id(
 async def health():
     return {"status": "running"}
 
-@app.get("/reset-admin")
+'''@app.get("/reset-admin")
 def reset_admin(db: Session = Depends(get_db)):
     users = db.query(User).all()
     for u in users:
         u.password = hash_password("newpassword123")
     db.commit()
-    return {"users": [u.username for u in users], "new_password": "9825187078"}
+    return {"users": [u.username for u in users], "new_password": ""}'''
 
 @app.post("/webhook/{token}")
 async def telegram_webhook(token: str, request: Request):
