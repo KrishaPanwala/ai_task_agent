@@ -1,176 +1,384 @@
 # app/agent/loop.py
-# Uses manual function-call parsing instead of Groq's tools API,
-# which has a known bug with llama-3.3-70b-versatile producing <function=...> format.
 
 import json
-import re
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
 from groq import Groq
+
 from app.config import GROQ_API_KEY
 from app.agent.tools.handlers import dispatch_tool
+from app.agent.tools.schemas import TOOLS
 
 IST = ZoneInfo("Asia/Kolkata")
+
 client = Groq(api_key=GROQ_API_KEY)
+
 MODEL = "openai/gpt-oss-20b"
 MAX_TURNS = 10
-
-TOOLS_NEEDING_USER_ID = {
-    "read_memory", "update_memory", "check_conflicts",
-    "save_reminder", "decompose_goal", "send_message",
-}
-
-TOOL_DESCRIPTIONS = """You have access to these tools. Call them by outputting JSON in this exact format on its own line:
-TOOL_CALL: {"name": "tool_name", "args": {...}}
-
-Available tools:
-- read_memory: {"name": "read_memory", "args": {"user_id": "..."}}
-- check_conflicts: {"name": "check_conflicts", "args": {"user_id": "...", "proposed_time": "YYYY-MM-DDTHH:MM:00"}}
-- fetch_weather: {"name": "fetch_weather", "args": {"latitude": 21.17, "longitude": 72.83, "datetime_str": "YYYY-MM-DDTHH:MM:00"}}
-- save_reminder: {"name": "save_reminder", "args": {"user_id": "...", "task": "...", "scheduled_time": "YYYY-MM-DDTHH:MM:00", "recurrence": "none|daily|weekly|hourly"}}
-- update_memory: {"name": "update_memory", "args": {"user_id": "...", "updates": {"frequent_tasks": [], "preferred_times": [], "notes": "..."}}}
-- decompose_goal: {"name": "decompose_goal", "args": {"user_id": "...", "goal": "...", "context": "..."}}
-- send_message: {"name": "send_message", "args": {"user_id": "...", "message": "..."}}
-
-After each TOOL_CALL line, wait for the result before continuing.
-When done with all tool calls, write your final reply to the user normally (no TOOL_CALL prefix)."""
 
 
 def build_system_prompt(memory_profile: str = "") -> str:
     now = datetime.now(IST)
-    memory_section = f"User memory:\n{memory_profile}" if memory_profile else "User memory: none yet."
-    return f"""You are a smart reminder assistant. Today is {now.strftime('%A, %d %B %Y')}, time is {now.strftime('%I:%M %p')} IST. Year: {now.year}.
+
+    memory_section = (
+        f"User memory:\n{memory_profile}"
+        if memory_profile
+        else "User memory: none yet."
+    )
+
+    return f"""
+You are a smart reminder assistant.
+
+Current date:
+{now.strftime('%A, %d %B %Y')}
+
+Current time:
+{now.strftime('%I:%M %p')} IST
+
+Year:
+{now.year}
+
+All reminder times are in Asia/Kolkata (IST).
 
 {memory_section}
 
-{TOOL_DESCRIPTIONS}
+IMPORTANT TOOL RULES:
 
-For goals like "help me build a morning routine", call decompose_goal first, show the plan, then save only after user confirms.
+1. For a normal reminder request, follow this order:
+   - read_memory
+   - check_conflicts
+   - fetch_weather only if the task is outdoor/weather-sensitive
+   - save_reminder
+   - update_memory
 
-For every reminder request follow this order:
-1. TOOL_CALL read_memory
-2. TOOL_CALL check_conflicts
-3. TOOL_CALL fetch_weather (only if outdoor task: jogging, cycling, walking, picnic, etc.)
-4. TOOL_CALL save_reminder
-5. TOOL_CALL update_memory
-6. Write confirmation to user. Your confirmation MUST include:
-   - The task and scheduled time
-   - Any conflict warning from check_conflicts if has_conflicts is true
-   - Any weather warning from fetch_weather if is_bad is true or rain_chance > 30
-   - Recurrence info if not "none"
+2. Always call read_memory before scheduling a reminder.
 
-Keep your final reply under 3 lines. Format:
-✅ [task] set for [task] set for [time in "DD Mon YYYY at HH:MM AM/PM" format, e.g. "11 Jun 2026 at 09:00 PM"]
-⚠️ [conflict warning if any, one line]
-🌤️ [weather warning if any, one line]   
+3. Always call check_conflicts before save_reminder.
 
-Datetime rules:
-- All times IST. Use ISO format YYYY-MM-DDTHH:MM:00 in tool calls only.
-- In your final reply to the user, show time as "DD Mon YYYY at HH:MM AM/PM".
-- No date given → use today. Time already passed → use tomorrow."""
+4. Only call fetch_weather for outdoor/weather-sensitive tasks such as:
+   - jogging
+   - running
+   - cycling
+   - walking
+   - picnic
+   - outdoor exercise
+   - outdoor events
 
-def parse_tool_call(line: str):
-    """Extract tool name and args from a TOOL_CALL line."""
-    line = line.strip()
-    if not line.startswith("TOOL_CALL:"):
-        return None, None
-    json_str = line[len("TOOL_CALL:"):].strip()
-    try:
-        data = json.loads(json_str)
-        return data.get("name"), data.get("args", {})
-    except json.JSONDecodeError:
-        return None, None
+5. Do NOT call fetch_weather for indoor tasks.
+
+6. Do not save a reminder until its date and time are determined.
+
+7. If the user gives only a time, use today's date.
+
+8. If the requested time has already passed today, use tomorrow.
+
+9. Tool datetime values must use:
+   YYYY-MM-DDTHH:MM:SS
+
+10. Interpret reminder times as IST.
+
+11. When calling tools, always use the actual user ID supplied by the application.
+    Never invent or change the user ID.
+
+12. For a goal such as:
+    "help me build a morning routine"
+    use decompose_goal first.
+    Do not automatically save the proposed reminders unless the user confirms.
+
+13. After tools finish, give a short confirmation.
+
+The final confirmation should include:
+- task
+- scheduled time
+- recurrence if applicable
+- conflict warning if there is a conflict
+- weather warning if weather is bad or rain chance is above 30%
+
+Format the final answer like:
+
+✅ [task] set for [DD Mon YYYY at HH:MM AM/PM]
+⚠️ [conflict warning if needed]
+🌤️ [weather warning if needed]
+
+Keep the final response under 3 lines.
+"""
 
 
-def plan_goal(user_id: str, goal: str, context: str, memory_profile: str) -> str:
+def _normalize_tool_args(tool_name: str, args: dict, user_id: int) -> dict:
+    """
+    Make tool arguments safe before passing them to handlers.
+    The authenticated user_id always wins over whatever the model provides.
+    """
+
+    args = dict(args or {})
+
+    # Never trust the model for user identity.
+    if tool_name in {
+        "read_memory",
+        "update_memory",
+        "check_conflicts",
+        "save_reminder",
+        "decompose_goal",
+        "send_message",
+    }:
+        args["user_id"] = str(user_id)
+
+    # schemas.py calls this field "datetime",
+    # but handlers.py expects "datetime_str".
+    if tool_name == "fetch_weather":
+        if "datetime" in args and "datetime_str" not in args:
+            args["datetime_str"] = args.pop("datetime")
+
+    return args
+
+
+def _execute_tool(tool_name: str, args: dict, user_id: int) -> str:
+    """
+    Execute one native Groq tool call through the existing dispatcher.
+    """
+
+    args = _normalize_tool_args(tool_name, args, user_id)
+
+    print(f"🔧 {tool_name}({args})")
+
+    result = dispatch_tool(tool_name, args)
+
+    print(f"✅ {result[:500]}")
+
+    return result
+
+
+def plan_goal(
+    user_id: str,
+    goal: str,
+    context: str,
+    memory_profile: str,
+) -> str:
+    """
+    Generate a proposed goal plan.
+    This is deliberately a separate LLM call with no tools.
+    """
+
     now = datetime.now(IST)
-    prompt = f"""Today: {now.strftime('%A, %d %B %Y')}, {now.strftime('%I:%M %p')} IST.
-Memory: {memory_profile or 'none'}
-Goal: "{goal}" Context: "{context}"
-Return ONLY a JSON array, no markdown:
-[{{"task":"...","suggested_time":"YYYY-MM-DDTHH:MM:00","recurrence":"daily|weekly|none"}}]"""
+
+    prompt = f"""
+Today: {now.strftime('%A, %d %B %Y')}
+Current time: {now.strftime('%I:%M %p')} IST
+
+User memory:
+{memory_profile or 'none'}
+
+Goal:
+{goal}
+
+Context:
+{context}
+
+Return ONLY a valid JSON array.
+
+Each item must have exactly:
+- task
+- suggested_time
+- recurrence
+
+Example:
+
+[
+  {{
+    "task": "Morning exercise",
+    "suggested_time": "2026-10-09T07:00:00",
+    "recurrence": "daily"
+  }}
+]
+
+Do not include markdown.
+Do not include explanations.
+"""
+
     response = client.chat.completions.create(
         model=MODEL,
         messages=[
-            {"role": "system", "content": "Return ONLY a valid JSON array. No explanation, no markdown."},
-            {"role": "user", "content": prompt},
+            {
+                "role": "system",
+                "content": (
+                    "You are a planning assistant. "
+                    "Return only valid JSON."
+                ),
+            },
+            {
+                "role": "user",
+                "content": prompt,
+            },
         ],
-        temperature=0.3,
+        temperature=0.2,
+        max_tokens=800,
     )
-    raw = response.choices[0].message.content.strip().replace("```json", "").replace("```", "").strip()
+
+    raw = (response.choices[0].message.content or "").strip()
+
+    # Remove accidental markdown fences.
+    raw = raw.replace("```json", "").replace("```", "").strip()
+
     try:
         plan = json.loads(raw)
-        lines = [f"  {i+1}. {r['task']} — {r['suggested_time']} ({r['recurrence']})" for i, r in enumerate(plan)]
-        return json.dumps({"plan": plan, "preview": "Proposed plan:\n" + "\n".join(lines)})
-    except Exception:
-        return json.dumps({"error": "Could not parse goal plan", "raw": raw})
+
+        if not isinstance(plan, list):
+            raise ValueError("Plan is not a JSON array")
+
+        lines = []
+
+        for i, item in enumerate(plan, 1):
+            lines.append(
+                f"{i}. {item['task']} — "
+                f"{item['suggested_time']} "
+                f"({item['recurrence']})"
+            )
+
+        return json.dumps(
+            {
+                "plan": plan,
+                "preview": "Proposed plan:\n" + "\n".join(lines),
+            },
+            ensure_ascii=False,
+        )
+
+    except Exception as e:
+        return json.dumps(
+            {
+                "error": "Could not parse goal plan",
+                "details": str(e),
+                "raw": raw,
+            },
+            ensure_ascii=False,
+        )
 
 
 def run_agent(user_message: str, user_id: int) -> str:
+    """
+    Main AI agent.
+
+    Uses Groq's native function calling rather than manually asking
+    the model to output TOOL_CALL text.
+    """
+
     from app.memory import get_memory
+
+    # Keep the existing memory context in the system prompt.
     memory_profile = get_memory(user_id) or ""
-    memory_profile = memory_profile[:250] if len(memory_profile) > 250 else memory_profile
+
+    # Avoid putting a huge memory profile into every request.
+    memory_profile = memory_profile[:250]
 
     messages = [
-        {"role": "system", "content": build_system_prompt(memory_profile)},
-        {"role": "user", "content": user_message},
+        {
+            "role": "system",
+            "content": build_system_prompt(memory_profile),
+        },
+        {
+            "role": "user",
+            "content": user_message,
+        },
     ]
 
     for turn in range(MAX_TURNS):
-        print(f"🔄 Turn {turn + 1}")
+        print(f"🔄 Agent turn {turn + 1}")
 
         response = client.chat.completions.create(
             model=MODEL,
             messages=messages,
+            tools=TOOLS,
+            tool_choice="auto",
             temperature=0.2,
             max_tokens=1024,
         )
 
-        reply = response.choices[0].message.content or ""
-        print(f"📝 Reply: {reply[:300]}")
+        message = response.choices[0].message
 
-        # Check if any line is a tool call
-        lines = reply.strip().split("\n")
-        tool_results = []
-        has_tool_call = False
+        # ---------------------------------------------------------
+        # Native tool calls
+        # ---------------------------------------------------------
 
-        for line in lines:
-            if line.strip().startswith("TOOL_CALL:"):
-                has_tool_call = True
-                tool_name, tool_args = parse_tool_call(line)
-                if not tool_name:
-                    tool_results.append(f"[Error parsing tool call: {line}]")
+        tool_calls = getattr(message, "tool_calls", None)
+
+        if tool_calls:
+            print(f"🛠️ Model requested {len(tool_calls)} tool call(s)")
+
+            # Add the assistant's tool-call message to conversation.
+            messages.append(message)
+
+            for tool_call in tool_calls:
+                tool_name = tool_call.function.name
+
+                try:
+                    tool_args = json.loads(
+                        tool_call.function.arguments or "{}"
+                    )
+                except json.JSONDecodeError as e:
+                    result = json.dumps(
+                        {
+                            "error": "Invalid tool arguments",
+                            "details": str(e),
+                        }
+                    )
+
+                    messages.append(
+                        {
+                            "role": "tool",
+                            "tool_call_id": tool_call.id,
+                            "content": result,
+                        }
+                    )
+
                     continue
 
-                # Always inject real user_id
-                if tool_name in TOOLS_NEEDING_USER_ID:
-                    tool_args["user_id"] = str(user_id)
-
-                print(f"🔧 {tool_name}({tool_args})")
+                # -------------------------------------------------
+                # Special handling for goal decomposition
+                # -------------------------------------------------
 
                 if tool_name == "decompose_goal":
-                    result_str = plan_goal(
+                    tool_args = _normalize_tool_args(
+                        tool_name,
+                        tool_args,
+                        user_id,
+                    )
+
+                    result = plan_goal(
                         user_id=str(user_id),
                         goal=tool_args.get("goal", ""),
                         context=tool_args.get("context", ""),
                         memory_profile=memory_profile,
                     )
+
                 else:
-                    result_str = dispatch_tool(tool_name, tool_args)
+                    result = _execute_tool(
+                        tool_name,
+                        tool_args,
+                        user_id,
+                    )
 
-                print(f"✅ {result_str[:200]}")
-                tool_results.append(f"TOOL_RESULT ({tool_name}): {result_str}")
+                # IMPORTANT:
+                # Native Groq tool results must be sent as role="tool"
+                # with the matching tool_call_id.
+                messages.append(
+                    {
+                        "role": "tool",
+                        "tool_call_id": tool_call.id,
+                        "content": result,
+                    }
+                )
 
-        if has_tool_call:
-            # Append assistant message and tool results, then loop
-            messages.append({"role": "assistant", "content": reply})
-            messages.append({"role": "user", "content": "\n".join(tool_results) + "\nContinue."})
+            # Ask the model what to do next after receiving tool results.
             continue
 
-        # No tool calls — this is the final reply
-        # Strip any leftover TOOL_CALL lines just in case
-        final_lines = [l for l in lines if not l.strip().startswith("TOOL_CALL:")]
-        return "\n".join(final_lines).strip() or "Done! Your reminder has been set."
+        # ---------------------------------------------------------
+        # No tool call = final answer
+        # ---------------------------------------------------------
 
-    return "Your reminder has been processed. Please check your list."
+        reply = message.content or ""
+
+        print(f"📝 Final reply: {reply[:500]}")
+
+        return reply.strip() or "Done! Your reminder has been set."
+
+    return "Your reminder has been processed. Please check your reminder list."
