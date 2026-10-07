@@ -24,7 +24,7 @@ from app.telegram import send_telegram_message
 
 IST = ZoneInfo("Asia/Kolkata")
 client = Groq(api_key=GROQ_API_KEY)
-MODEL = "llama-3.1-8b-instant"
+MODEL = "openai/gpt-oss-20b"
 
 
 # ─── Helpers ──────────────────────────────────────────────────────────────────
