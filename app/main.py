@@ -145,7 +145,7 @@ def reset_admin(db: Session = Depends(get_db)):
     for u in users:
         u.password = hash_password("newpassword123")
     db.commit()
-    return {"users": [u.username for u in users], "new_password": "newpassword123"}
+    return {"users": [u.username for u in users], "new_password": "9825187078"}
 
 @app.post("/webhook/{token}")
 async def telegram_webhook(token: str, request: Request):
