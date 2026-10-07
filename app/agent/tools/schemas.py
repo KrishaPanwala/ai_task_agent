@@ -1,185 +1,262 @@
 """
-Tool schemas passed to Groq for function calling.
-Each tool maps to a handler in tools/handlers.py
+Tool schemas passed to Groq for native function calling.
+
+The model does NOT receive user_id as a parameter.
+The application injects the actual user_id automatically.
 """
 
 TOOLS = [
+
+    # ------------------------------------------------------------------
+    # MEMORY
+    # ------------------------------------------------------------------
     {
         "type": "function",
         "function": {
             "name": "read_memory",
             "description": (
-                "Read the user's memory profile: preferred reminder times, "
-                "frequent tasks, habits, and past behaviour. "
-                "Always call this FIRST before scheduling anything."
+                "Read the user's memory profile including preferred "
+                "reminder times, frequent tasks, habits, and past behaviour. "
+                "Always call this FIRST before scheduling a reminder."
             ),
             "parameters": {
                 "type": "object",
-                "properties": {
-                    "user_id": {"type": "string", "description": "The user's ID"}
-                },
-                "required": ["user_id"],
+                "properties": {},
+                "required": [],
             },
         },
     },
+
     {
         "type": "function",
         "function": {
             "name": "update_memory",
             "description": (
                 "Update the user's memory profile after an interaction. "
-                "Store new habits, preferred times, or task patterns observed."
+                "Store new habits, preferred times, or task patterns."
             ),
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "user_id": {"type": "string"},
                     "updates": {
                         "type": "object",
-                        "description": "Key-value pairs to merge into the memory profile",
+                        "description": "Information to add to user memory.",
                         "properties": {
                             "preferred_times": {
                                 "type": "array",
                                 "items": {"type": "string"},
-                                "description": "e.g. ['morning', '7am', 'after lunch']",
+                                "description": (
+                                    "Examples: morning, 7am, after lunch"
+                                ),
                             },
                             "frequent_tasks": {
                                 "type": "array",
                                 "items": {"type": "string"},
-                                "description": "e.g. ['exercise', 'drink water', 'meditate']",
+                                "description": (
+                                    "Examples: exercise, drink water, meditate"
+                                ),
                             },
                             "habits": {
                                 "type": "object",
-                                "description": "Free-form habit notes, e.g. {skips_early_alarms: true}",
+                                "description": "Free-form habit information.",
                             },
-                            "notes": {"type": "string"},
+                            "notes": {
+                                "type": "string",
+                                "description": "Additional memory notes.",
+                            },
                         },
-                    },
+                    }
                 },
-                "required": ["user_id", "updates"],
+                "required": ["updates"],
             },
         },
     },
+
+    # ------------------------------------------------------------------
+    # CONFLICTS
+    # ------------------------------------------------------------------
     {
         "type": "function",
         "function": {
             "name": "check_conflicts",
             "description": (
-                "Check if any existing reminders overlap with a proposed time. "
-                "Call this before saving any reminder."
+                "Check whether existing reminders overlap with a proposed "
+                "time. Always call this before saving a reminder."
             ),
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "user_id": {"type": "string"},
                     "proposed_time": {
                         "type": "string",
-                        "description": "ISO 8601 datetime string, e.g. 2025-06-01T17:00:00",
+                        "description": (
+                            "Reminder time in IST using "
+                            "YYYY-MM-DDTHH:MM:SS format."
+                        ),
                     },
                     "window_minutes": {
                         "type": "integer",
-                        "description": "How many minutes either side to check. Default 15.",
+                        "description": (
+                            "Minutes before and after the proposed time "
+                            "to check. Default is 15."
+                        ),
                         "default": 15,
                     },
                 },
-                "required": ["user_id", "proposed_time"],
+                "required": ["proposed_time"],
             },
         },
     },
+
+    # ------------------------------------------------------------------
+    # WEATHER
+    # ------------------------------------------------------------------
     {
         "type": "function",
         "function": {
             "name": "fetch_weather",
             "description": (
                 "Fetch weather forecast for a given location and time. "
-                "Call this when the task sounds outdoor or weather-sensitive "
-                "(jogging, cycling, walking, picnic, etc.)."
+                "Use only for outdoor or weather-sensitive tasks such as "
+                "jogging, cycling, walking, picnic, or outdoor exercise."
             ),
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "latitude": {"type": "number"},
-                    "longitude": {"type": "number"},
-                    "datetime": {
+                    "latitude": {
+                        "type": "number",
+                        "description": "Latitude of the location.",
+                    },
+                    "longitude": {
+                        "type": "number",
+                        "description": "Longitude of the location.",
+                    },
+                    "datetime_str": {
                         "type": "string",
-                        "description": "ISO 8601 datetime to check forecast for",
+                        "description": (
+                            "IST datetime using "
+                            "YYYY-MM-DDTHH:MM:SS format."
+                        ),
                     },
                 },
-                "required": ["latitude", "longitude", "datetime"],
+                "required": [
+                    "latitude",
+                    "longitude",
+                    "datetime_str",
+                ],
             },
         },
     },
+
+    # ------------------------------------------------------------------
+    # SAVE REMINDER
+    # ------------------------------------------------------------------
     {
         "type": "function",
         "function": {
             "name": "save_reminder",
-            "description": "Save a fully validated reminder to Supabase.",
+            "description": (
+                "Save a validated reminder for the current user. "
+                "The application automatically supplies the user's identity."
+            ),
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "user_id": {"type": "string"},
-                    "task": {"type": "string", "description": "What to remind the user about"},
+                    "task": {
+                        "type": "string",
+                        "description": "What to remind the user about.",
+                    },
                     "scheduled_time": {
                         "type": "string",
-                        "description": "ISO 8601 datetime string in UTC",
+                        "description": (
+                            "Reminder time in IST using "
+                            "YYYY-MM-DDTHH:MM:SS format."
+                        ),
                     },
                     "recurrence": {
                         "type": "string",
-                        "enum": ["none", "daily", "weekly", "hourly"],
+                        "enum": [
+                            "none",
+                            "daily",
+                            "weekly",
+                            "hourly",
+                        ],
                         "default": "none",
                     },
                     "tags": {
                         "type": "array",
                         "items": {"type": "string"},
-                        "description": "e.g. ['outdoor', 'health', 'work']",
+                        "description": (
+                            "Optional tags such as outdoor, health, or work."
+                        ),
                     },
                 },
-                "required": ["user_id", "task", "scheduled_time"],
+                "required": [
+                    "task",
+                    "scheduled_time",
+                ],
             },
         },
     },
+
+    # ------------------------------------------------------------------
+    # GOAL DECOMPOSITION
+    # ------------------------------------------------------------------
     {
         "type": "function",
         "function": {
             "name": "decompose_goal",
             "description": (
-                "Break a high-level goal into a structured list of sub-reminders "
-                "with suggested times. Use when the user says something like "
-                "'help me build a morning routine' or 'I want to study for exams'."
+                "Break a high-level goal into a structured list of "
+                "sub-reminders with suggested times. Use for requests such "
+                "as 'help me build a morning routine' or "
+                "'I want to study for exams'."
             ),
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "user_id": {"type": "string"},
-                    "goal": {"type": "string", "description": "The user's high-level goal"},
+                    "goal": {
+                        "type": "string",
+                        "description": "The user's high-level goal.",
+                    },
                     "context": {
                         "type": "string",
-                        "description": "Any extra context: duration, deadline, constraints",
+                        "description": (
+                            "Extra context such as duration, deadline, "
+                            "or constraints."
+                        ),
                     },
                 },
-                "required": ["user_id", "goal"],
+                "required": ["goal"],
             },
         },
     },
+
+    # ------------------------------------------------------------------
+    # SEND TELEGRAM MESSAGE
+    # ------------------------------------------------------------------
     {
         "type": "function",
         "function": {
             "name": "send_message",
             "description": (
-                "Send a Telegram message to the user. Use for proactive outreach, "
-                "warnings (weather, conflicts), or goal plan confirmations."
+                "Send a Telegram message to the current user. "
+                "Use for proactive outreach, warnings, or confirmations."
             ),
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "user_id": {"type": "string"},
-                    "message": {"type": "string"},
+                    "message": {
+                        "type": "string",
+                        "description": "Message to send to the user.",
+                    },
                     "reply_markup": {
                         "type": "object",
-                        "description": "Optional Telegram inline keyboard JSON",
+                        "description": (
+                            "Optional Telegram inline keyboard JSON."
+                        ),
                     },
                 },
-                "required": ["user_id", "message"],
+                "required": ["message"],
             },
         },
     },
