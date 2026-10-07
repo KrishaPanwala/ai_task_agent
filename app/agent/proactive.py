@@ -24,7 +24,7 @@ from app.telegram import send_telegram_message
 
 IST = ZoneInfo("Asia/Kolkata")
 client = Groq(api_key=GROQ_API_KEY)
-MODEL = "MODEL = "llama3-70b-8192""
+MODEL = "llama3-70b-8192"
 
 
 # ─── Helpers ──────────────────────────────────────────────────────────────────
