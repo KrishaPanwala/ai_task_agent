@@ -13,7 +13,7 @@ from app.agent.tools.handlers import dispatch_tool
 
 IST = ZoneInfo("Asia/Kolkata")
 client = Groq(api_key=GROQ_API_KEY)
-MODEL = "llama3-70b-8192"
+MODEL = "llama-3.1-8b-instant"
 MAX_TURNS = 10
 
 TOOLS_NEEDING_USER_ID = {
